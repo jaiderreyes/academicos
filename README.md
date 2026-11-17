@@ -209,3 +209,4 @@ git commit -m "academicOS: ingesta, validación y catálogo recuperable"
 ```
 
 Añade a `.gitignore` las carpetas privadas de entrada o salida que crees dentro del proyecto. No subas documentos ni catálogos personales.
+# academicos
