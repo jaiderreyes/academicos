@@ -14,3 +14,28 @@ condicion_minima:
     - {id: estructuras_basicas, descripcion: Usa lista, pila y cola implementadas por el estudiante}
     - {id: orden_prioridad_fifo, descripcion: Procesa P1 → P2 → P3 con FIFO dentro de cada prioridad}
     - {id: encadenar, descripcion: ENCADENAR inserta y procesa otra pista}
+
+# Carpeta (relativa a la rúbrica) con los casos de prueba de la persona docente
+casos: ../casos/boveda-fichas
+
+verificaciones:
+  - id: tipo_lista
+    tipo: requiere_tipo
+    nombres: ['\w*lista\w*']
+    requisito: estructuras_basicas
+    descripcion: Declara una lista (clase propia)
+  - id: tipo_pila
+    tipo: requiere_tipo
+    nombres: ['\w*pila\w*']
+    requisito: estructuras_basicas
+    descripcion: Declara una pila (clase propia)
+  - id: tipo_cola
+    tipo: requiere_tipo
+    nombres: ['\w*cola\w*']
+    requisito: estructuras_basicas
+    descripcion: Declara una cola (clase propia)
+  - id: manual_sin_java_util
+    tipo: prohibido_uso
+    patron: 'import\s+java\.util\.(LinkedList|ArrayList|List|Stack|Queue|Deque|ArrayDeque|PriorityQueue|Vector)\b'
+    archivos: '(?i)manual'
+    descripcion: La versión manual no usa colecciones de java.util (informativa)

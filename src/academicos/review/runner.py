@@ -81,7 +81,8 @@ class DockerRunner:
         return r.returncode == 0
 
     # ---- construcción del comando --------------------------------------
-    def build_command(self, name, work, out, script, out_writable, network="none"):
+    def build_command(self, name, work, out, script, out_writable, network="none",
+                      extra_mounts=()):
         out_mode = "rw" if out_writable else "ro"
         return [
             self.docker, "run", "--rm", "--name", name, "--label", LABEL,
@@ -92,6 +93,7 @@ class DockerRunner:
             "--read-only", "--tmpfs", f"/tmp:rw,size={self.tmpfs_mb}m",
             "--user", "1000:1000",
             "-v", f"{work}:/work:ro", "-v", f"{out}:/out:{out_mode}",
+            *[x for m in extra_mounts for x in ("-v", m)],
             "-w", "/tmp",
             self.image, "sh", "-c", script,
         ]
@@ -102,12 +104,14 @@ class DockerRunner:
         except (OSError, subprocess.TimeoutExpired):
             pass
 
-    def step(self, label, script, work, out, out_writable, timeout, stdin=None):
+    def step(self, label, script, work, out, out_writable, timeout, stdin=None,
+             extra_mounts=()):
         if not self.available():
             return StepResult(label, "no_verificable",
                               note="Docker no está disponible", command=script)
         name = NAME_PREFIX + uuid.uuid4().hex[:12]
-        cmd = self.build_command(name, work, out, script, out_writable)
+        cmd = self.build_command(name, work, out, script, out_writable,
+                                 extra_mounts=extra_mounts)
         started = time.monotonic()
         try:
             r = self.run(cmd, capture_output=True, input=stdin, timeout=timeout)
@@ -146,12 +150,19 @@ class DockerRunner:
                 "omitidos por JUnit: " + ", ".join(skipped)
         return res
 
-    def execute(self, main_class, work, out, args=(), stdin=None, timeout=30):
+    def execute(self, main_class, work, out, args=(), stdin=None, timeout=30,
+                casos_dir=None):
         """java -cp /out <clase>, con una copia escribible del proyecto en /tmp/w."""
         a = " ".join(shlex.quote(x) for x in args)
-        script = (f"cp -r /work/. /tmp/w && cd /tmp/w && "
+        copia = "cp -r /work/. /tmp/w && "
+        extra = ()
+        if casos_dir is not None:  # los casos son de la persona docente, no del estudiante
+            copia += "mkdir -p /tmp/w/_casos && cp -r /casos/. /tmp/w/_casos/ && "
+            extra = (f"{casos_dir}:/casos:ro",)
+        script = (f"{copia}cd /tmp/w && "
                   f"java -Xmx256m -cp /out {shlex.quote(main_class)} {a}").strip()
-        return self.step("ejecutar", script, work, out, False, timeout, stdin=stdin)
+        return self.step("ejecutar", script, work, out, False, timeout, stdin=stdin,
+                         extra_mounts=extra)
 
 
 def compile_and_run(runner, info, work, main_class=None, args=(), stdin=None,

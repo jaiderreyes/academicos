@@ -5,8 +5,8 @@
 - [x] J-03 Implementar carga, validación y cálculo de nota con tope.
 - [x] J-04 Detectar estructura de proyecto Java y preparar copia temporal.
 - [x] J-05 Implementar compilación y ejecución en Docker con límites y registro.
-- [ ] J-05b Leer criterios manuales y casos de prueba desde carpetas aparte.
-- [ ] J-06 Implementar verificaciones estáticas y casos de prueba externos.
+- [x] J-05b Leer criterios manuales y casos de prueba desde carpetas aparte.
+- [x] J-06 Implementar verificaciones estáticas y casos de prueba externos.
 - [ ] J-07 Implementar similitud de código entre entregas.
 - [ ] J-08 Generar reportes por estudiante y consolidado.
 - [ ] J-09 Integrar comandos CLI y catálogo.

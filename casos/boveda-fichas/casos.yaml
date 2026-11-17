@@ -1,0 +1,11 @@
+# PLANTILLA de casos para "Bóveda de fichas". Ajusta `args`, `stdin` y `esperado` a la
+# interfaz que exige el enunciado (cada estudiante expone su propio main).
+# Los archivos de este directorio quedan disponibles en el contenedor como `_casos/`.
+casos:
+  - id: orden_prioridad
+    descripcion: Procesa P1 antes que P2 y P2 antes que P3 (EJEMPLO: ajustar textos)
+    args: ["_casos/prioridades.txt"]
+    requisito: orden_prioridad_fifo
+    esperado:
+      codigo_salida: 0
+      salida_orden: ["P1", "P2", "P3"]

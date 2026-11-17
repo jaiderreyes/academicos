@@ -9,6 +9,8 @@ from pathlib import Path
 
 import yaml
 
+from .checks import CheckError, parse_checks
+
 PESO_TOTAL = 100
 TIPOS = {"automatico", "manual"}
 
@@ -40,6 +42,8 @@ class Rubrica:
     tope: float
     criterios: tuple
     requisitos: tuple = field(default_factory=tuple)
+    verificaciones: tuple = field(default_factory=tuple)
+    casos: str = ""
 
 
 def _num(valor, campo):
@@ -100,8 +104,16 @@ def parse_rubric(datos):
             raise RubricError(f"requisito repetido: {rid}")
         rvistos.add(rid)
         requisitos.append(Requisito(rid, str(r.get("descripcion", rid))))
+    try:
+        verificaciones = parse_checks(datos.get("verificaciones"),
+                                      {r.id for r in requisitos})
+    except CheckError as exc:
+        raise RubricError(str(exc)) from exc
+    casos = datos.get("casos") or ""
+    if casos and not isinstance(casos, str):
+        raise RubricError("'casos' debe ser una ruta de carpeta")
     return Rubrica(nombre.strip(), emin, emax, aprobacion, tope,
-                   tuple(criterios), tuple(requisitos))
+                   tuple(criterios), tuple(requisitos), verificaciones, casos)
 
 
 def load_rubric(path):
