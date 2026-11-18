@@ -187,3 +187,24 @@ class PuntoEnNivelTest(unittest.TestCase):
         n = [x for x in c.niveles if x.nombre == medio["nivel"]][0]
         self.assertEqual(base["nota"], n.min)
         self.assertEqual(medio["nota"], (n.min + n.max) / 2)
+
+
+class UltimoNivelTest(unittest.TestCase):
+    def _crit(self, ultimo):
+        niveles = [{"nivel": "deficiente", "min": 0.0, "max": 2.9},
+                   {"nivel": "regular", "min": 3.0, "max": 3.9, "requiere": ["a"]},
+                   {"nivel": "bueno", "min": 4.0, "max": 4.4, "requiere": ["b"]}, ultimo]
+        return parse_rubric({"nombre": "R", "criterios": [{"id": "x", "peso": 100, "niveles": niveles}]}).criterios[0]
+
+    def test_ultimo_nivel_sin_requisitos_extra_da_el_maximo_si_cumple_todo(self):
+        c = self._crit({"nivel": "excelente", "min": 4.5, "max": 5.0, "requiere": []})
+        r = evaluar_criterio(c, {"a": True, "b": True}, "medio")
+        self.assertEqual((r["nivel"], r["nota"]), ("excelente", 5.0))
+        r2 = evaluar_criterio(c, {"a": True, "b": False}, "medio")
+        self.assertEqual(r2["nivel"], "regular")
+
+    def test_requiere_vacio_solo_vale_en_el_ultimo_nivel(self):
+        with self.assertRaises(Exception):
+            parse_rubric({"nombre": "R", "criterios": [{"id": "x", "peso": 100, "niveles": [
+                {"nivel": "d", "min": 0.0, "max": 2.9}, {"nivel": "r", "min": 3.0, "max": 3.9, "requiere": []},
+                {"nivel": "b", "min": 4.0, "max": 5.0, "requiere": ["a"]}]}]})

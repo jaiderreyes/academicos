@@ -43,7 +43,7 @@ criterios:
           - err_referencia_inexistente
           - err_referencia_no_letra
           - err_letra_repetida
-      - {nivel: excelente, min: 4.5, max: 5.0, manual: true, descripcion: Justifica invariantes y demuestra determinismo}
+      - {nivel: excelente, min: 4.5, max: 5.0, requiere: [], descripcion: Justifica invariantes y demuestra determinismo}
 
   - id: estructuras
     nombre: Estructuras e integración
@@ -61,8 +61,8 @@ criterios:
         min: 4.0
         max: 4.4
         descripcion: Integra además ambas variantes (manual y java.util) y casos límite
-        requiere: [variante_biblioteca, biblioteca_usa_java_util, comparacion_variantes, err_apertura_sobrante]
-      - {nivel: excelente, min: 4.5, max: 5.0, manual: true, descripcion: Mantiene invariantes y analiza costos}
+        requiere: [variante_biblioteca, biblioteca_usa_java_util, err_apertura_sobrante]
+      - {nivel: excelente, min: 4.5, max: 5.0, requiere: [], descripcion: Mantiene invariantes y analiza costos}
 
   - id: validacion
     nombre: Validación y pruebas
@@ -92,9 +92,10 @@ criterios:
           - err_referencia_inexistente
           - err_referencia_no_letra
           - err_letra_repetida
-      - {nivel: excelente, min: 4.5, max: 5.0, manual: true, descripcion: Pruebas de regresión y trazas equivalentes}
+      - {nivel: excelente, min: 4.5, max: 5.0, requiere: [], descripcion: Pruebas de regresión y trazas equivalentes}
 
-  - {id: informe, nombre: Informe y defensa, peso: 20, tipo: manual}
+  # Decisión docente: sin defensa; la nota es 5.0 × fracción de entregables presentes (sección 9)
+  - {id: informe, nombre: Informe y evidencias, peso: 20, tipo: evidencias}
 
 condicion_minima:
   tope: 2.9

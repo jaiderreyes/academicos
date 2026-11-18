@@ -68,6 +68,9 @@ def _seccion_mejora(r):
     return L
 
 
+from .evidencias import lineas_md as _lineas_evidencias  # noqa: E402
+
+
 def markdown(r):
     L = [f"# Revisión · {r['estudiante']}", "",
          f"Rúbrica: {r['rubrica']} · Proyecto: {r.get('proyecto', '—')} · {r['fecha']}", ""]
@@ -136,6 +139,8 @@ def markdown(r):
               "Es una decisión de la persona docente, no una conclusión de la herramienta: la similitud es un indicio. "
               "Quitar `--sancion-similitud` al volver a correr revierte el ajuste."]
     L += _seccion_mejora(r)
+    if r.get("evidencias"):
+        L += _lineas_evidencias(r["evidencias"])
     i = r["integridad"]
     L += ["", "## Integridad y alcance", "",
           f"- Original sin cambios: {'sí' if i['intacto'] else 'NO'} ({i['archivos']} archivos comparados por SHA-256)",

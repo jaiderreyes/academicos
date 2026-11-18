@@ -51,6 +51,9 @@ def evaluar_criterio(criterio, hechos, punto="minimo"):
     else:
         # "minimo": límite inferior del nivel (conservador); "medio": centro del rango (decisión docente).
         nota = (base.min + base.max) / 2 if punto == "medio" else base.min
+        # Último nivel alcanzado sin pendientes: cumple todo lo pedido → máximo del rango.
+        if punto == "medio" and siguiente is None:
+            nota = base.max
     res.update(estado="puntuado", nota=round(nota, 4))
     return res
 

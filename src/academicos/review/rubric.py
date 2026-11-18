@@ -12,7 +12,7 @@ import yaml
 from .checks import CheckError, parse_checks
 
 PESO_TOTAL = 100
-TIPOS = {"automatico", "manual"}
+TIPOS = {"automatico", "manual", "evidencias"}
 
 
 class RubricError(ValueError):
@@ -91,7 +91,8 @@ def _parse_niveles(cid, crudos, emin, emax):
         manual = bool(n.get("manual", False))
         if i == 0 and (req or manual):
             raise RubricError(f"{cid}: el primer nivel es la base y no lleva requisitos")
-        if i > 0 and not req and not manual:
+        # `requiere: []` explícito en el último nivel = basta con cumplir todos los anteriores.
+        if i > 0 and not req and not manual and not (i == len(crudos) - 1 and "requiere" in n):
             raise RubricError(f"{cid}.{nombre}: define 'requiere' o marca 'manual: true'")
         niveles.append(Nivel(nombre, lo, hi, tuple(req), manual, str(n.get("descripcion", ""))))
         previo = hi

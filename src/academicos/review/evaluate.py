@@ -11,6 +11,7 @@ from pathlib import Path
 from .cases import load_cases, requisitos_desde_casos, run_cases, CaseError
 from .checks import requisitos_desde_checks, run_checks
 from .levels import evaluar_criterio, ids_desconocidos
+from .evidencias import escanear, puntaje_evidencias
 from .similarity import archivos_sin_modificar, huella_de
 from .javaproject import (ProjectError, detect_project, fingerprint, find_candidates,
                           prepare_copy)
@@ -87,6 +88,8 @@ def evaluar_entrega(rubrica, rubrica_dir, estudiante_dir, runner, proyecto=None,
         lista = list(cands)
         resultado["alternativas"] = [c.name for c in cands[1:]]
     resultado["proyecto"] = origen.name
+    if estudiante_dir.is_dir():
+        resultado["evidencias"] = escanear(estudiante_dir)
     antes = {c: fingerprint(c) for c in lista}
     with tempfile.TemporaryDirectory(prefix="academicos-eval-") as tmp:
         tmp = Path(tmp)
@@ -178,6 +181,13 @@ def evaluar_entrega(rubrica, rubrica_dir, estudiante_dir, runner, proyecto=None,
                 confirmaciones.append({"criterio": c.id, "nivel": n["requiere_confirmacion"]})
         elif c.evidencia:
             puntajes[c.id] = _puntaje_por_evidencia(rubrica, c, hechos, resultado["avisos"])
+    for c in rubrica.criterios:
+        if c.tipo == "evidencias":
+            ev = resultado.get("evidencias")
+            if ev is None:
+                resultado["avisos"].append(f"criterio '{c.id}' pendiente: no se pudo revisar la carpeta de entrega")
+            else:
+                puntajes[c.id], resultado["evidencias"]["puntaje"] = puntaje_evidencias(ev, rubrica.escala_max)
     for cid, a in ajustes.items():
         previa = puntajes.get(cid)
         puntajes[cid] = a["nota"]
