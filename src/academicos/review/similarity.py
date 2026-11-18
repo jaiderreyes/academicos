@@ -78,7 +78,7 @@ def huella_de(raiz, archivos, excluir=(), base=None, minimo=MIN_TOKENS):
     """Huella de un proyecto: dict con conjuntos de n-gramas literales y normalizados.
 
     Con `base`, se restan los n-gramas de la base: solo cuenta el código añadido."""
-    toks = []
+    toks, firmas = [], {}
     for f in sorted(archivos, key=lambda a: a.path):
         if f.path in excluir:
             continue
@@ -86,13 +86,16 @@ def huella_de(raiz, archivos, excluir=(), base=None, minimo=MIN_TOKENS):
             texto = (Path(raiz) / f.path).read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        toks.extend(_tokens(texto))
+        t = _tokens(texto)
+        toks.extend(t)
+        if len(t) >= N:
+            firmas[f.path] = firma_archivo(texto)
     lit, nor = _shingles(toks), _shingles(_normalizar(toks))
     if base:
         lit, nor = lit - base["huella"]["literal"], nor - base["huella"]["normalizada"]
     if len(toks) < minimo or (base and len(lit) < MIN_TOKENS - N + 1):
-        return {"tokens": len(toks), "literal": set(), "normalizada": set()}
-    return {"tokens": len(toks), "literal": lit, "normalizada": nor}
+        return {"tokens": len(toks), "literal": set(), "normalizada": set(), "firmas": {}}
+    return {"tokens": len(toks), "literal": lit, "normalizada": nor, "firmas": firmas}
 
 
 def _jaccard(a, b):
@@ -113,7 +116,10 @@ def comparar(huellas, umbral=UMBRAL):
             nor = _jaccard(ha["normalizada"], hb["normalizada"])
             if max(lit, nor) >= umbral:
                 comunes = sorted(ha["literal"] & hb["literal"], key=lambda s: (-len(s), s))[:3]
-                pares.append({"a": a, "b": b, "literal": round(lit, 4), "normalizada": round(nor, 4),
+                fa, fb = ha.get("firmas", {}), hb.get("firmas", {})
+                iguales = [(pa, pb) for pa, sa in sorted(fa.items()) for pb, sb in sorted(fb.items()) if sa == sb]
+                pares.append({"a": a, "b": b, "archivos_a": len(fa), "archivos_b": len(fb),
+                              "archivos_identicos": iguales, "literal": round(lit, 4), "normalizada": round(nor, 4),
                               "puntaje": round(max(lit, nor), 4), "fragmentos": comunes})
     pares.sort(key=lambda p: -p["puntaje"])
     return {"umbral": umbral, "algoritmo": f"jaccard_{N}gramas_tokens", "pares": pares,
@@ -129,6 +135,13 @@ def markdown(res):
         for p in res["pares"]:
             frag = " ; ".join(f"`{f}`" for f in p["fragmentos"]) or "—"
             L.append(f"| {p['a']} | {p['b']} | {p['literal']:.2f} | {p['normalizada']:.2f} | {frag} |")
+        L += ["", "## Archivos idénticos por pareja", "",
+              "Idénticos = mismos tokens de código, sin contar comentarios ni espacios, y fuera de la base entregada.", ""]
+        for p in res["pares"]:
+            n = len(p["archivos_identicos"])
+            L.append(f"### {p['a']} ↔ {p['b']}")
+            L.append(f"{n} archivo(s) idéntico(s) de {p['archivos_a']} y {p['archivos_b']} con código propio.")
+            L += [f"- `{x}` = `{y}`" for x, y in p["archivos_identicos"]] + [""]
     else:
         L.append("Ningún par supera el umbral.")
     if res["insuficientes"]:

@@ -83,3 +83,11 @@ class BaseTest(unittest.TestCase):
         con = comparar({"a": huella_de(d1, [NS(path="A.java")], base=base), "b": huella_de(d2, [NS(path="A.java")], base=base)})
         self.assertEqual(len(sin["pares"]), 1)       # sin base parecen copias por el código común
         self.assertEqual(con["pares"], [])           # restando la base ya no
+
+
+class ArchivosIdenticosTest(unittest.TestCase):
+    def test_lista_archivos_identicos_y_cuenta(self):
+        r = comparar({"x": proyecto(BASE), "y": proyecto(BASE.replace("// comentario", "// otro"))})
+        p = r["pares"][0]
+        self.assertEqual(p["archivos_identicos"], [("A.java", "A.java")])
+        self.assertIn("Archivos idénticos por pareja", markdown(r))
