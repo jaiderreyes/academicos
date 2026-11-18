@@ -20,12 +20,23 @@ class RubricError(ValueError):
 
 
 @dataclass(frozen=True)
+class Nivel:
+    nombre: str
+    min: float
+    max: float
+    requiere: tuple = ()      # ids de verificaciones, casos, requisitos o "compila"
+    manual: bool = False      # solo la persona docente puede confirmarlo
+    descripcion: str = ""
+
+
+@dataclass(frozen=True)
 class Criterio:
     id: str
     nombre: str
     peso: float
     tipo: str = "automatico"
     evidencia: tuple = ()   # ids de verificaciones o casos que sustentan la nota
+    niveles: tuple = ()     # niveles acumulativos (deficiente → excelente) con requisitos
 
 
 AUTO_REQUISITOS = {"compila"}
@@ -49,12 +60,41 @@ class Rubrica:
     requisitos: tuple = field(default_factory=tuple)
     verificaciones: tuple = field(default_factory=tuple)
     casos: str = ""
+    clase_principal: str = ""   # clase con main() que se ejecuta (p. ej. app.Main)
 
 
 def _num(valor, campo):
     if isinstance(valor, bool) or not isinstance(valor, (int, float)):
         raise RubricError(f"'{campo}' debe ser numérico")
     return float(valor)
+
+
+def _parse_niveles(cid, crudos, emin, emax):
+    if not crudos:
+        return ()
+    if not isinstance(crudos, list) or len(crudos) < 2:
+        raise RubricError(f"{cid}: 'niveles' necesita al menos dos niveles")
+    niveles, previo = [], None
+    for i, n in enumerate(crudos):
+        if not isinstance(n, dict) or not n.get("nivel"):
+            raise RubricError(f"{cid}: cada nivel necesita 'nivel'")
+        nombre = str(n["nivel"])
+        lo, hi = _num(n.get("min"), f"{cid}.{nombre}.min"), _num(n.get("max"), f"{cid}.{nombre}.max")
+        if not emin <= lo <= hi <= emax:
+            raise RubricError(f"{cid}.{nombre}: rango fuera de la escala o invertido")
+        if previo is not None and lo <= previo:
+            raise RubricError(f"{cid}.{nombre}: los niveles deben ir de menor a mayor sin solaparse")
+        req = n.get("requiere") or []
+        if not isinstance(req, list) or not all(isinstance(x, str) for x in req):
+            raise RubricError(f"{cid}.{nombre}: 'requiere' debe ser una lista de ids")
+        manual = bool(n.get("manual", False))
+        if i == 0 and (req or manual):
+            raise RubricError(f"{cid}: el primer nivel es la base y no lleva requisitos")
+        if i > 0 and not req and not manual:
+            raise RubricError(f"{cid}.{nombre}: define 'requiere' o marca 'manual: true'")
+        niveles.append(Nivel(nombre, lo, hi, tuple(req), manual, str(n.get("descripcion", ""))))
+        previo = hi
+    return tuple(niveles)
 
 
 def parse_rubric(datos):
@@ -100,7 +140,12 @@ def parse_rubric(datos):
             raise RubricError(f"evidencia de {cid} debe ser una lista de ids")
         if ev and tipo == "manual":
             raise RubricError(f"{cid} es manual; no puede tener evidencia automática")
-        criterios.append(Criterio(cid, str(c.get("nombre", cid)), peso, tipo, tuple(ev)))
+        niveles = _parse_niveles(cid, c.get("niveles"), emin, emax)
+        if niveles and tipo == "manual":
+            raise RubricError(f"{cid} es manual; no puede tener niveles automáticos")
+        if niveles and ev:
+            raise RubricError(f"{cid}: usa 'niveles' o 'evidencia', no ambos")
+        criterios.append(Criterio(cid, str(c.get("nombre", cid)), peso, tipo, tuple(ev), niveles))
     suma = sum(c.peso for c in criterios)
     if abs(suma - PESO_TOTAL) > 1e-9:
         raise RubricError(f"los pesos suman {suma:g} %, deben sumar {PESO_TOTAL} %")
@@ -122,11 +167,15 @@ def parse_rubric(datos):
                                       {r.id for r in requisitos})
     except CheckError as exc:
         raise RubricError(str(exc)) from exc
+    ejec = datos.get("ejecucion") or {}
+    if not isinstance(ejec, dict):
+        raise RubricError("'ejecucion' debe ser un mapa")
+    clase_principal = str(ejec.get("clase_principal") or "")
     casos = datos.get("casos") or ""
     if casos and not isinstance(casos, str):
         raise RubricError("'casos' debe ser una ruta de carpeta")
     return Rubrica(nombre.strip(), emin, emax, aprobacion, tope,
-                   tuple(criterios), tuple(requisitos), verificaciones, casos)
+                   tuple(criterios), tuple(requisitos), verificaciones, casos, clase_principal)
 
 
 def load_rubric(path):

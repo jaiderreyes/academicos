@@ -1,0 +1,10 @@
+# Criterios que solo puede puntuar la persona docente. Un archivo por estudiante, con el
+# mismo nombre de su carpeta (p. ej. "NOMBRE APELLIDO.yaml"). Este archivo NO se usa como dato.
+estudiante: NOMBRE APELLIDO
+puntajes:            # solo criterios de tipo manual; si falta o es null, queda pendiente
+  informe: 4.0
+ajustes:             # opcional: confirmar o corregir un criterio automático, con motivo
+  modelado:
+    nota: 3.8
+    motivo: No entrega modelado escrito (diagrama, tabla de fichas ni pseudocódigo)
+observaciones: Texto libre para la retroalimentación.

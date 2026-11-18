@@ -35,5 +35,17 @@ def load_manual(path, rubrica):
         if not rubrica.escala_min <= nota <= rubrica.escala_max:
             raise RubricError(f"{path.name}: nota de {cid} fuera de la escala")
         puntajes[cid] = nota
-    return {"estudiante": datos.get("estudiante"), "puntajes": puntajes,
+    ajustes = {}
+    for cid, a in (datos.get("ajustes") or {}).items():
+        if cid not in todos:
+            raise RubricError(f"{path.name}: ajuste a criterio desconocido '{cid}'")
+        if cid in manuales:
+            raise RubricError(f"{path.name}: '{cid}' es manual; usa 'puntajes'")
+        if not isinstance(a, dict) or not str(a.get("motivo") or "").strip():
+            raise RubricError(f"{path.name}: el ajuste de '{cid}' necesita 'nota' y 'motivo'")
+        nota = _num(a.get("nota"), f"ajustes.{cid}.nota")
+        if not rubrica.escala_min <= nota <= rubrica.escala_max:
+            raise RubricError(f"{path.name}: ajuste de {cid} fuera de la escala")
+        ajustes[cid] = {"nota": nota, "motivo": str(a["motivo"]).strip()}
+    return {"estudiante": datos.get("estudiante"), "puntajes": puntajes, "ajustes": ajustes,
             "observaciones": str(datos.get("observaciones") or "")}

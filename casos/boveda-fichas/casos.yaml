@@ -1,0 +1,144 @@
+# Casos de prueba de "Bóveda de fichas" derivados de la sección 7 del enunciado.
+# Invocación del enunciado: java -cp out app.Main <archivo>. Los archivos de esta carpeta
+# quedan en el contenedor como _casos/. El enunciado no fija el texto exacto de los
+# mensajes ni los códigos de salida: las expectativas usan expresiones tolerantes y los
+# casos de error comprueban ficha y línea citadas y que NO se procese el mensaje final.
+casos:
+  - id: ejemplo_valido
+    descripcion: "Archivo válido del ejemplo: salida SOL y pista ENCADENAR procesada"
+    args: ["_casos/ejemplo_valido.txt"]
+    requisito: encadenar
+    esperado:
+      salida_regex:
+        - '\bSOL\b'
+      salida_no_regex:
+        - '(?i)exception in thread'
+  - id: tres_prioridades
+    descripcion: "Pistas en P1, P2 y P3 con orden físico distinto: SOL"
+    args: ["_casos/prueba_tres_prioridades.txt"]
+    requisito: orden_prioridad_fifo
+    esperado:
+      salida_regex:
+        - '\bSOL\b'
+      salida_no_regex:
+        - '(?i)exception in thread'
+  - id: fifo_misma_prioridad
+    descripcion: "Dos o más pistas de la misma prioridad respetan FIFO: SOL (LIFO daría LOS)"
+    args: ["_casos/fifo_misma_prioridad.txt"]
+    requisito: orden_prioridad_fifo
+    esperado:
+      salida_regex:
+        - '\bSOL\b'
+      salida_no_regex:
+        - '\bLOS\b'
+        - '(?i)exception in thread'
+  - id: encadenar_cola_con_pistas
+    descripcion: "ENCADENAR agrega al final de una cola que aún tiene pistas: SLO (al frente daría SOL)"
+    args: ["_casos/encadenar_cola_con_pistas.txt"]
+    requisito: encadenar
+    esperado:
+      salida_regex:
+        - '\bSLO\b'
+      salida_no_regex:
+        - '\bSOL\b'
+        - '(?i)exception in thread'
+  - id: err_cierre_incorrecto_f05
+    descripcion: "Cierre incorrecto en F05 (línea 6) y no se procesan pistas"
+    args: ["_casos/err_cierre_incorrecto_f05.txt"]
+    esperado:
+      salida_regex:
+        - 'F05'
+        - '(?i)(l\S{0,2}nea|line|fila|ln)\D{0,25}\b6\b'
+      salida_no_regex:
+        - '\bSOL\b'
+        - '(?i)exception in thread'
+  - id: err_cierre_f05_simbolo
+    descripcion: "DETALLE: el mensaje de F05 indica que se esperaba ] (el cierre que corresponde al tope [), como en el enunciado"
+    args: ["_casos/err_cierre_incorrecto_f05.txt"]
+    esperado:
+      salida_regex:
+        - '(?i)(esperaba|esperado|se espera|expected)\D{0,12}\]'
+  - id: err_cierre_sin_apertura
+    descripcion: "Cierre sin apertura en F01 (línea 2)"
+    args: ["_casos/err_cierre_sin_apertura.txt"]
+    esperado:
+      salida_regex:
+        - 'F01'
+        - '(?i)(l\S{0,2}nea|line|fila|ln)\D{0,25}\b2\b'
+      salida_no_regex:
+        - '\bSOL\b'
+        - '(?i)exception in thread'
+  - id: err_apertura_sobrante
+    descripcion: "Apertura sobrante: se informa error y no hay mensaje final"
+    args: ["_casos/err_apertura_sobrante.txt"]
+    esperado:
+      salida_regex:
+        - '(?i)(F01|sobrante|sin cerrar|abiert|apertura|pila)'
+      salida_no_regex:
+        - '\bSOL\b'
+        - '(?i)exception in thread'
+  - id: err_id_repetido
+    descripcion: "ID repetido F02 (línea 4)"
+    args: ["_casos/err_id_repetido.txt"]
+    esperado:
+      salida_regex:
+        - 'F02'
+        - '(?i)(l\S{0,2}nea|line|fila|ln)\D{0,25}\b4\b'
+      salida_no_regex:
+        - '(?i)exception in thread'
+  - id: err_linea_incompleta
+    descripcion: "Línea incompleta (línea 4)"
+    args: ["_casos/err_linea_incompleta.txt"]
+    esperado:
+      salida_regex:
+        - '(?i)(l\S{0,2}nea|line|fila|ln)\D{0,25}\b4\b'
+      salida_no_regex:
+        - '(?i)exception in thread'
+  - id: err_tipo_invalido
+    descripcion: "Tipo inválido (línea 3)"
+    args: ["_casos/err_tipo_invalido.txt"]
+    esperado:
+      salida_regex:
+        - '(?i)(l\S{0,2}nea|line|fila|ln)\D{0,25}\b3\b'
+      salida_no_regex:
+        - '(?i)exception in thread'
+  - id: err_prioridad_fuera_rango
+    descripcion: "Prioridad fuera de 1-3 (línea 3)"
+    args: ["_casos/err_prioridad_fuera_rango.txt"]
+    esperado:
+      salida_regex:
+        - '(?i)(l\S{0,2}nea|line|fila|ln)\D{0,25}\b3\b'
+      salida_no_regex:
+        - '(?i)exception in thread'
+  - id: err_referencia_inexistente
+    descripcion: "Referencia inexistente a F99"
+    args: ["_casos/err_referencia_inexistente.txt"]
+    esperado:
+      salida_regex:
+        - 'F99'
+      salida_no_regex:
+        - '(?i)exception in thread'
+  - id: err_referencia_no_letra
+    descripcion: "Referencia a una ficha que no es LETRA"
+    args: ["_casos/err_referencia_no_letra.txt"]
+    esperado:
+      salida_regex:
+        - 'F0[13]'
+      salida_no_regex:
+        - '(?i)exception in thread'
+  - id: err_letra_repetida
+    descripcion: "Letra revelada dos veces"
+    args: ["_casos/err_letra_repetida.txt"]
+    esperado:
+      salida_regex:
+        - 'F0[123]'
+      salida_no_regex:
+        - '(?i)exception in thread'
+  - id: comparacion_variantes
+    descripcion: "HEURÍSTICO: la ejecución compara manual vs java.util e informa equivalencia"
+    args: ["_casos/ejemplo_valido.txt"]
+    esperado:
+      salida_regex:
+        - '(?i)(equivalen|coincid|iguales|igual|id[eé]ntic)'
+      salida_no_regex:
+        - '(?i)exception in thread'

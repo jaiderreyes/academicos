@@ -3,6 +3,7 @@
 Tipos:
 - requiere_tipo: debe declararse al menos un tipo (class/interface/enum/record) cuyo
   nombre cumpla alguna expresión de `nombres`.
+- requiere_patron: al menos una línea de código debe cumplir `patron` (en `archivos`, si se indica).
 - prohibido_uso: ninguna línea de código (sin comentarios ni cadenas) debe cumplir
   `patron`; `archivos` (regex sobre la ruta) acota dónde se busca.
 Cada resultado cita archivo y línea y puede alimentar un requisito de la rúbrica.
@@ -10,7 +11,7 @@ Cada resultado cita archivo y línea y puede alimentar un requisito de la rúbri
 import re
 from pathlib import Path
 
-TIPOS = {"requiere_tipo", "prohibido_uso"}
+TIPOS = {"requiere_tipo", "prohibido_uso", "requiere_patron"}
 TYPE_DECL_RE = re.compile(r"\b(?:class|interface|enum|record)\s+([A-Za-z_]\w*)")
 
 
@@ -107,6 +108,20 @@ def run_checks(checks, root, files):
                         linea = limpio.count("\n", 0, m.start()) + 1
                         hallazgos.append({"archivo": ruta, "linea": linea, "texto": m.group(1)})
             cumple = bool(hallazgos)
+        elif c["tipo"] == "requiere_patron":
+            patron = re.compile(c["patron"])
+            alcance = re.compile(c["archivos"]) if c["archivos"] else None
+            evaluados = 0
+            for ruta, raw, limpio in fuentes:
+                if alcance and not alcance.search(ruta):
+                    continue
+                evaluados += 1
+                crudas = raw.splitlines()
+                for n, linea in enumerate(limpio.splitlines(), 1):
+                    if patron.search(linea):
+                        texto = crudas[n - 1].strip() if n <= len(crudas) else linea.strip()
+                        hallazgos.append({"archivo": ruta, "linea": n, "texto": texto})
+            cumple = bool(hallazgos) if evaluados else None
         else:
             patron = re.compile(c["patron"])
             alcance = re.compile(c["archivos"]) if c["archivos"] else None

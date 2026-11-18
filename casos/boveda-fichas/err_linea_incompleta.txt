@@ -1,0 +1,5 @@
+id|tipo|valor|prioridad|instruccion
+F01|ABRE|(|3|-
+F02|LETRA|S|3|-
+F03|LETRA|O|3
+F04|CIERRA|)|3|-

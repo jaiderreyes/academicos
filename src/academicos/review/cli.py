@@ -2,7 +2,9 @@
 import json
 from pathlib import Path
 
+from .cases import CaseError, load_cases
 from .evaluate import evaluar_entrega
+from .levels import ids_desconocidos
 from .report import export_course, export_student
 from .rubric import RubricError, load_rubric
 from .runner import DEFAULT_IMAGE, DockerRunner, selfcheck
@@ -74,11 +76,23 @@ def _resumen(r):
 def run_review(args):
     if args.review_command == "rubric-check":
         r = load_rubric(args.rubrica)
-        print(json.dumps({"rubrica": r.nombre, "criterios": [(c.id, c.peso, c.tipo, list(c.evidencia)) for c in r.criterios],
+        ids_casos, nota = [], None
+        if r.casos:
+            carpeta = (args.rubrica.parent / r.casos).resolve()
+            try:
+                ids_casos = [c["id"] for c in load_cases(carpeta, {q.id for q in r.requisitos})]
+            except CaseError as exc:
+                nota = f"casos no cargados: {exc}"
+        desconocidos = ids_desconocidos(r, ids_casos) if not nota else {}
+        print(json.dumps({"rubrica": r.nombre, "clase_principal": r.clase_principal,
+                          "criterios": [{"id": c.id, "peso": c.peso, "tipo": c.tipo,
+                                         "niveles": [n.nombre + ("*" if n.manual else "") for n in c.niveles]}
+                                        for c in r.criterios],
                           "requisitos": [(q.id, q.auto or "verificaciones/casos") for q in r.requisitos],
-                          "verificaciones": [v["id"] for v in r.verificaciones], "casos": r.casos,
+                          "verificaciones": [v["id"] for v in r.verificaciones],
+                          "casos": ids_casos, "nota": nota, "ids_desconocidos": desconocidos,
                           "tope": r.tope, "aprobacion": r.aprobacion}, ensure_ascii=False, indent=2))
-        return 0
+        return 1 if desconocidos else 0
     if args.review_command == "docker-check":
         res = selfcheck(DockerRunner(image=args.image), pull=args.pull)
         print(json.dumps(res, ensure_ascii=False, indent=2))

@@ -41,7 +41,7 @@ def load_cases(folder, requisitos_validos=()):
         esperado = c.get("esperado") or {}
         if not isinstance(esperado, dict):
             raise CaseError(f"{cid}: 'esperado' debe ser un mapa")
-        for k in ("salida_regex",):
+        for k in ("salida_regex", "salida_no_regex"):
             for r in esperado.get(k) or []:
                 try:
                     re.compile(r)
@@ -57,8 +57,9 @@ def load_cases(folder, requisitos_validos=()):
 def evaluar_salida(esperado, step):
     """Comparar un paso ejecutado con lo esperado. Devuelve lista de fallas (vacía = cumple)."""
     fallas = []
-    codigo = esperado.get("codigo_salida", 0)
-    if step.exit_code != codigo:
+    # Sin `codigo_salida` no se exige ninguno: el enunciado puede no fijarlo.
+    codigo = esperado.get("codigo_salida")
+    if codigo is not None and step.exit_code != codigo:
         fallas.append(f"código de salida {step.exit_code}, esperado {codigo}")
     salida = step.stdout
     for t in esperado.get("salida_contiene") or []:
@@ -70,6 +71,9 @@ def evaluar_salida(esperado, step):
     for r in esperado.get("salida_regex") or []:
         if not re.search(r, salida, re.M):
             fallas.append(f"no coincide la expresión {r!r}")
+    for r in esperado.get("salida_no_regex") or []:
+        if re.search(r, salida, re.M):
+            fallas.append(f"coincide la expresión prohibida {r!r}")
     orden = esperado.get("salida_orden") or []
     if orden:
         pos = 0

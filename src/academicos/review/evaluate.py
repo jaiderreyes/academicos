@@ -3,12 +3,14 @@
 Orquesta detección, copia, verificaciones, compilación/casos en Docker, criterios manuales
 y nota sugerida. Todo lo que no se pudo comprobar queda marcado, nunca se puntúa por defecto.
 """
+import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .cases import load_cases, requisitos_desde_casos, run_cases, CaseError
 from .checks import requisitos_desde_checks, run_checks
+from .levels import evaluar_criterio, ids_desconocidos
 from .javaproject import (ProjectError, detect_project, fingerprint, find_candidates,
                           prepare_copy)
 from .manual import load_manual
@@ -53,6 +55,21 @@ def _puntaje_por_evidencia(rubrica, criterio, estados, avisos):
     return round(rubrica.escala_min + (rubrica.escala_max - rubrica.escala_min) * ok / len(criterio.evidencia), 4)
 
 
+def _elegir_main(rubrica, info, avisos):
+    """Clase con main() según la rúbrica (sin distinguir mayúsculas); avisa si difiere."""
+    pedida = rubrica.clase_principal
+    if pedida:
+        for m in info.main_classes:
+            if m.lower() == pedida.lower():
+                if m != pedida:
+                    avisos.append(f"la clase principal '{m}' difiere de '{pedida}' del enunciado "
+                                  f"solo en mayúsculas (en Linux, `java {pedida}` fallaría)")
+                return m
+        avisos.append(f"no se encontró la clase principal '{pedida}' del enunciado")
+    candidatas = [m for m in info.main_classes if not re.search(r"(?i)(test|prueba)", m)]
+    return candidatas[0] if candidatas else None
+
+
 def evaluar_entrega(rubrica, rubrica_dir, estudiante_dir, runner, proyecto=None,
                     manual_path=None, casos_dir=None):
     estudiante_dir = Path(estudiante_dir)
@@ -93,7 +110,8 @@ def evaluar_entrega(rubrica, rubrica_dir, estudiante_dir, runner, proyecto=None,
             except CaseError as exc:
                 resultado["avisos"].append(f"casos no cargados: {exc}")
                 casos_dir = None
-        ejec = run_cases(runner, info, work, casos_dir or work, casos)
+        ejec = run_cases(runner, info, work, casos_dir or work, casos,
+                         main_class=_elegir_main(rubrica, info, resultado["avisos"]))
         comp = ejec["compilacion"]
         resultado["compilacion"] = comp.to_dict()
         resultado["casos"] = ejec["casos"]
@@ -105,20 +123,45 @@ def evaluar_entrega(rubrica, rubrica_dir, estudiante_dir, runner, proyecto=None,
     requisitos = _combinar(requisitos_desde_checks(checks), requisitos_desde_casos(ejec["casos"]), auto)
     requisitos = {r.id: requisitos.get(r.id) for r in rubrica.requisitos}
 
-    # 4) criterios: manuales desde archivo; automáticos desde su evidencia
-    puntajes = {}
+    # 4) criterios: manuales y ajustes desde archivo; automáticos por niveles o evidencia
+    puntajes, ajustes = {}, {}
     if manual_path and Path(manual_path).is_file():
         manual = load_manual(manual_path, rubrica)
         puntajes.update(manual["puntajes"])
-        resultado["manual"] = {"archivo": Path(manual_path).name, "observaciones": manual["observaciones"]}
+        ajustes = manual["ajustes"]
+        resultado["manual"] = {"archivo": Path(manual_path).name, "observaciones": manual["observaciones"],
+                               "ajustes": ajustes}
     elif any(c.tipo == "manual" for c in rubrica.criterios):
         resultado["avisos"].append("sin archivo de criterios manuales: quedan pendientes")
-    estados = {c["id"]: c["cumple"] for c in checks}
-    estados.update({c["id"]: (True if c["estado"] == "ok" else False if c["estado"] == "fail" else None)
-                    for c in ejec["casos"]})
+    hechos = {"compila": estado_compila}
+    hechos.update({c["id"]: c["cumple"] for c in checks})
+    hechos.update({c["id"]: (True if c["estado"] == "ok" else False if c["estado"] == "fail" else None)
+                   for c in ejec["casos"]})
+    hechos.update(requisitos)
+    for rid, donde in ids_desconocidos(rubrica, [c["id"] for c in ejec["casos"]]).items():
+        resultado["avisos"].append(f"la rúbrica usa el id '{rid}' ({', '.join(donde)}) que no existe")
+    niveles, confirmaciones = [], []
     for c in rubrica.criterios:
-        if c.tipo == "automatico" and c.evidencia:
-            puntajes[c.id] = _puntaje_por_evidencia(rubrica, c, estados, resultado["avisos"])
+        if c.tipo != "automatico":
+            continue
+        if c.niveles:
+            n = evaluar_criterio(c, hechos)
+            niveles.append(n)
+            puntajes[c.id] = n["nota"]
+            if n["estado"] == "pendiente":
+                resultado["avisos"].append(
+                    f"criterio '{c.id}' pendiente: sin verificar {n['sin_verificar']} "
+                    f"(confirmado hasta el nivel {n['nivel']})")
+            if n["requiere_confirmacion"]:
+                confirmaciones.append({"criterio": c.id, "nivel": n["requiere_confirmacion"]})
+        elif c.evidencia:
+            puntajes[c.id] = _puntaje_por_evidencia(rubrica, c, hechos, resultado["avisos"])
+    for cid, a in ajustes.items():
+        previa = puntajes.get(cid)
+        puntajes[cid] = a["nota"]
+        a["sugerencia_automatica"] = previa
+    resultado["niveles"] = niveles
+    resultado["confirmaciones_docentes"] = [x for x in confirmaciones if x["criterio"] not in ajustes]
     resultado["requisitos"] = requisitos
     resultado["calificacion"] = score(rubrica, puntajes, requisitos)
     return resultado

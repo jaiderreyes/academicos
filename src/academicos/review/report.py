@@ -30,6 +30,23 @@ def markdown(r):
     for c in k["criterios"]:
         nota = "—" if c["nota"] is None else f"{c['nota']:.2f}"
         L.append(f"| {c['nombre']} | {c['tipo']} | {c['peso']:g} % | {nota} | {c['estado']} |")
+    if r.get("niveles"):
+        L += ["", "## Niveles por criterio", "",
+              "| Criterio | Nivel confirmado | Bloqueado por | Sin verificar | Nota automática |", "|---|---|---|---|---|"]
+        for n in r["niveles"]:
+            nota = "—" if n["nota"] is None else f"{n['nota']:.2f}"
+            sin = sorted(set(n["sin_verificar"]) | set(n.get("no_verificados_siguiente", [])))
+            L.append(f"| {n['id']} | {n['nivel']} | {', '.join(n['bloqueado_por']) or '—'} | {', '.join(sin) or '—'} | {nota} |")
+        L += ["", "La nota automática es el límite inferior del nivel confirmado."]
+    if r.get("confirmaciones_docentes"):
+        L += ["", "**Pendiente de tu revisión** (solo la persona docente puede confirmarlo): " +
+              "; ".join(f"{x['criterio']} → {x['nivel']}" for x in r["confirmaciones_docentes"]) +
+              ". Si corresponde, regístralo en `ajustes` del archivo manual con su motivo."]
+    if r.get("manual", {}).get("ajustes"):
+        L += ["", "### Ajustes docentes", ""]
+        for cid, a in r["manual"]["ajustes"].items():
+            sug = a.get("sugerencia_automatica")
+            L.append(f"- {cid}: {a['nota']:.2f} (sugerencia automática: {'—' if sug is None else f'{sug:.2f}'}) · {a['motivo']}")
     L += ["", "## Condición mínima", ""]
     for rid, v in r["requisitos"].items():
         L.append(f"- {rid}: {_estado(v)}")

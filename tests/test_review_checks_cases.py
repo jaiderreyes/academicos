@@ -110,7 +110,8 @@ class ChecksTests(unittest.TestCase):
     def test_rubrica_boveda_carga_verificaciones_y_casos(self):
         r = load_rubric(BOVEDA)
         self.assertEqual([v["id"] for v in r.verificaciones],
-                         ["tipo_lista", "tipo_pila", "tipo_cola", "manual_sin_java_util"])
+                         ["tipo_lista", "tipo_pila", "tipo_cola", "variante_biblioteca",
+                          "biblioteca_usa_java_util", "tiene_pruebas", "manual_sin_java_util"])
         self.assertTrue(r.casos.endswith("casos/boveda-fichas"))
 
 
@@ -157,6 +158,9 @@ casos:
         self.assertEqual(evaluar_salida({"salida_orden": ["P1", "P2", "P3"]}, s), [])
         self.assertTrue(evaluar_salida({"salida_orden": ["P2", "P1"]}, s))
         self.assertTrue(evaluar_salida({"codigo_salida": 3}, s))
+        self.assertEqual(evaluar_salida({}, StepResult("e", "fail", 7, stdout="x")), [])  # sin código exigido
+        self.assertTrue(evaluar_salida({"salida_no_regex": [r"P2\b"]}, s))
+        self.assertEqual(evaluar_salida({"salida_no_regex": [r"Exception"]}, s), [])
         self.assertTrue(evaluar_salida({"salida_no_contiene": ["P3"]}, s))
         self.assertTrue(evaluar_salida({"salida_regex": [r"^P9"]}, s))
 

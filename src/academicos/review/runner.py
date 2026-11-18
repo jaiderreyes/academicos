@@ -91,7 +91,7 @@ class DockerRunner:
             "--cpus", str(self.cpus), "--pids-limit", str(self.pids),
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--read-only", "--tmpfs", f"/tmp:rw,size={self.tmpfs_mb}m",
-            "--user", "1000:1000",
+            "--user", "1000:1000", "-e", "LC_ALL=C.UTF-8",
             "-v", f"{work}:/work:ro", "-v", f"{out}:/out:{out_mode}",
             *[x for m in extra_mounts for x in ("-v", m)],
             "-w", "/tmp",
@@ -160,7 +160,8 @@ class DockerRunner:
             copia += "mkdir -p /tmp/w/_casos && cp -r /casos/. /tmp/w/_casos/ && "
             extra = (f"{casos_dir}:/casos:ro",)
         script = (f"{copia}cd /tmp/w && "
-                  f"java -Xmx256m -cp /out {shlex.quote(main_class)} {a}").strip()
+                  f"java -Xmx256m -Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 "
+                  f"-Dstderr.encoding=UTF-8 -cp /out {shlex.quote(main_class)} {a}").strip()
         return self.step("ejecutar", script, work, out, False, timeout, stdin=stdin,
                          extra_mounts=extra)
 
