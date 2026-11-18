@@ -10,9 +10,11 @@ from .catalog import catalog_history, catalog_status
 from .reports import export_reports
 from .terminal import TerminalMonitor, watch
 from .workspace import clean_workspace, prepare_material
+from .review.cli import add_parser as add_review_parser, run_review
+from .review.rubric import RubricError
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="academicOS · biblioteca documental local")
     sub = parser.add_subparsers(dest="command", required=True)
     ingest = sub.add_parser("ingest", help="Convertir DOCX/PDF/ZIP con seguimiento")
@@ -42,8 +44,11 @@ def main():
     clean = sub.add_parser('clean', help='Limpiar un espacio de prueba administrado')
     clean.add_argument('--workspace', type=Path, default=Path('prueba'))
     clean.add_argument('--include-input', action='store_true', help='Eliminar también las copias de entrada')
-    args = parser.parse_args()
+    add_review_parser(sub)
+    args = parser.parse_args(argv)
     try:
+        if args.command == 'review':
+            return run_review(args)
         if args.command == 'prepare':
             print(json.dumps(prepare_material(args.material, args.workspace, args.clean), ensure_ascii=False, indent=2))
             return 0
@@ -73,7 +78,7 @@ def main():
     except KeyboardInterrupt:
         print('Seguimiento cerrado.' if args.command == 'watch' else 'Ejecución interrumpida; avances confirmados conservados.')
         return 130
-    except (ValueError, ImportError, OSError, sqlite3.Error) as exc:
+    except (ValueError, ImportError, OSError, sqlite3.Error, RubricError) as exc:
         parser.exit(2, f"Error: {exc}\n")
     for status, count in sorted(Counter(row["status"] for row in rows).items()):
         print(f"{status}: {count}")

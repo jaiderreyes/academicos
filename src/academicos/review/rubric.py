@@ -25,12 +25,17 @@ class Criterio:
     nombre: str
     peso: float
     tipo: str = "automatico"
+    evidencia: tuple = ()   # ids de verificaciones o casos que sustentan la nota
+
+
+AUTO_REQUISITOS = {"compila"}
 
 
 @dataclass(frozen=True)
 class Requisito:
     id: str
     descripcion: str
+    auto: str = ""          # "compila": se deriva del paso de compilación
 
 
 @dataclass(frozen=True)
@@ -90,7 +95,12 @@ def parse_rubric(datos):
         tipo = c.get("tipo", "automatico")
         if tipo not in TIPOS:
             raise RubricError(f"tipo inválido en {cid}: {tipo}")
-        criterios.append(Criterio(cid, str(c.get("nombre", cid)), peso, tipo))
+        ev = c.get("evidencia") or []
+        if not isinstance(ev, list) or not all(isinstance(x, str) for x in ev):
+            raise RubricError(f"evidencia de {cid} debe ser una lista de ids")
+        if ev and tipo == "manual":
+            raise RubricError(f"{cid} es manual; no puede tener evidencia automática")
+        criterios.append(Criterio(cid, str(c.get("nombre", cid)), peso, tipo, tuple(ev)))
     suma = sum(c.peso for c in criterios)
     if abs(suma - PESO_TOTAL) > 1e-9:
         raise RubricError(f"los pesos suman {suma:g} %, deben sumar {PESO_TOTAL} %")
@@ -103,7 +113,10 @@ def parse_rubric(datos):
         if rid in rvistos:
             raise RubricError(f"requisito repetido: {rid}")
         rvistos.add(rid)
-        requisitos.append(Requisito(rid, str(r.get("descripcion", rid))))
+        auto = str(r.get("auto") or "")
+        if auto and auto not in AUTO_REQUISITOS:
+            raise RubricError(f"requisito {rid}: auto inválido '{auto}'")
+        requisitos.append(Requisito(rid, str(r.get("descripcion", rid)), auto))
     try:
         verificaciones = parse_checks(datos.get("verificaciones"),
                                       {r.id for r in requisitos})

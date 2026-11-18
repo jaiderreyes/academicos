@@ -4,13 +4,13 @@ escala: {min: 0.0, max: 5.0}
 aprobacion: 3.0
 criterios:
   - {id: modelado,      nombre: Modelado y reglas,          peso: 25, tipo: automatico}
-  - {id: estructuras,   nombre: Estructuras e integración,  peso: 30, tipo: automatico}
+  - {id: estructuras,   nombre: Estructuras e integración,  peso: 30, tipo: automatico, evidencia: [tipo_lista, tipo_pila, tipo_cola, orden_prioridad]}
   - {id: validacion,    nombre: Validación y pruebas,       peso: 25, tipo: automatico}
   - {id: informe,       nombre: Informe y defensa,          peso: 20, tipo: manual}
 condicion_minima:
   tope: 2.9
   requisitos:
-    - {id: compila_manual, descripcion: La versión manual compila}
+    - {id: compila_manual, descripcion: La versión manual compila, auto: compila}
     - {id: estructuras_basicas, descripcion: Usa lista, pila y cola implementadas por el estudiante}
     - {id: orden_prioridad_fifo, descripcion: Procesa P1 → P2 → P3 con FIFO dentro de cada prioridad}
     - {id: encadenar, descripcion: ENCADENAR inserta y procesa otra pista}

@@ -1,0 +1,93 @@
+"""Reportes por estudiante y consolidado de curso (spec 006, J-08)."""
+import csv
+import io
+import json
+import re
+from pathlib import Path
+
+
+def _slug(texto):
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", texto).strip("_") or "estudiante"
+
+
+def _estado(v):
+    return {True: "cumple", False: "NO cumple", None: "sin verificar"}[v]
+
+
+def markdown(r):
+    L = [f"# Revisión · {r['estudiante']}", "",
+         f"Rúbrica: {r['rubrica']} · Proyecto: {r.get('proyecto', '—')} · {r['fecha']}", ""]
+    if r["errores"]:
+        L += ["## Errores", *[f"- {e}" for e in r["errores"]], ""]
+        return "\n".join(L) + "\n"
+    k = r["calificacion"]
+    estado = "completa" if k["completo"] else "PARCIAL (hay criterios o requisitos sin resolver)"
+    titulo = "Nota sugerida" if k["completo"] else "Nota PARCIAL (no es una calificación)"
+    L += [f"## {titulo}", "",
+          f"**{k['nota_sugerida']:.2f}** ({estado}) · máximo posible {k['maximo_posible']:.2f}"
+          + (f" · tope aplicado (nota sin tope {k['nota_sin_tope']:.2f})" if k["tope_aplicado"] else ""), "",
+          "| Criterio | Tipo | Peso | Nota | Estado |", "|---|---|---|---|---|"]
+    for c in k["criterios"]:
+        nota = "—" if c["nota"] is None else f"{c['nota']:.2f}"
+        L.append(f"| {c['nombre']} | {c['tipo']} | {c['peso']:g} % | {nota} | {c['estado']} |")
+    L += ["", "## Condición mínima", ""]
+    for rid, v in r["requisitos"].items():
+        L.append(f"- {rid}: {_estado(v)}")
+    e = r["estructura"]
+    L += ["", "## Estructura", "", f"- Tipo: {e['tipo']} · archivos Java: {e['archivos_java']}",
+          f"- Clases con main(): {', '.join(e['clases_principales']) or 'ninguna detectada'}",
+          f"- Archivos de prueba: {', '.join(e['archivos_prueba']) or 'ninguno'}"]
+    for a in e["avisos"]:
+        L.append(f"- Aviso: {a}")
+    c = r["compilacion"]
+    L += ["", "## Compilación", "", f"- Estado: **{c['status']}** · {c.get('note') or ''}".rstrip(" ·")]
+    if c["status"] == "fail" and c["stderr"]:
+        L += ["", "```", c["stderr"][:1500], "```"]
+    L += ["", "## Verificaciones estáticas", ""]
+    for v in r["verificaciones"]:
+        L.append(f"- {v['descripcion']}: {_estado(v['cumple'])}")
+        for h in v["hallazgos"][:5]:
+            L.append(f"  - `{h['archivo']}:{h['linea']}` {h['texto']}")
+    if r["casos"]:
+        L += ["", "## Casos de prueba", ""]
+        for cs in r["casos"]:
+            L.append(f"- {cs['descripcion']}: {cs['estado']}" + (f" — {'; '.join(cs['fallas'])}" if cs["fallas"] else ""))
+    if r.get("manual"):
+        L += ["", "## Criterios manuales", "", f"Archivo: {r['manual']['archivo']}"]
+        if r["manual"]["observaciones"]:
+            L.append(f"Observaciones: {r['manual']['observaciones']}")
+    i = r["integridad"]
+    L += ["", "## Integridad y alcance", "",
+          f"- Original sin cambios: {'sí' if i['intacto'] else 'NO'} ({i['archivos']} archivos comparados por SHA-256)",
+          *[f"- {a}" for a in r["avisos"]], ""]
+    return "\n".join(L)
+
+
+def export_student(r, outdir):
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    base = _slug(r["estudiante"])
+    (outdir / f"{base}.json").write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
+    (outdir / f"{base}.md").write_text(markdown(r), encoding="utf-8")
+    return {"json": str(outdir / f"{base}.json"), "md": str(outdir / f"{base}.md")}
+
+
+def export_course(resultados, outdir):
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["estudiante", "proyecto", "nota", "maximo_posible", "completa", "tope_aplicado",
+                "requisitos_incumplidos", "requisitos_sin_verificar", "compilacion", "original_intacto", "errores"])
+    for r in resultados:
+        k = r.get("calificacion")
+        w.writerow([r["estudiante"], r.get("proyecto", ""),
+                    "" if not k else k["nota_sugerida"], "" if not k else k["maximo_posible"],
+                    "" if not k else k["completo"], "" if not k else k["tope_aplicado"],
+                    "" if not k else ";".join(k["requisitos_incumplidos"]),
+                    "" if not k else ";".join(k["requisitos_sin_verificar"]),
+                    r.get("compilacion", {}).get("status", ""),
+                    r.get("integridad", {}).get("intacto", ""), " | ".join(r["errores"])])
+    ruta = outdir / "consolidado.csv"
+    ruta.write_text(buf.getvalue(), encoding="utf-8")
+    return str(ruta)

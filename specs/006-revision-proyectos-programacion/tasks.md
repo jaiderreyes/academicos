@@ -8,8 +8,8 @@
 - [x] J-05b Leer criterios manuales y casos de prueba desde carpetas aparte.
 - [x] J-06 Implementar verificaciones estáticas y casos de prueba externos.
 - [ ] J-07 Implementar similitud de código entre entregas.
-- [ ] J-08 Generar reportes por estudiante y consolidado.
-- [ ] J-09 Integrar comandos CLI y catálogo.
+- [x] J-08 Generar reportes por estudiante y consolidado.
+- [x] J-09 Integrar comandos CLI y catálogo.
 - [ ] J-10 Pruebas automatizadas con proyectos Java sintéticos.
 - [ ] J-11 Validación con las tres entregas reales ya calificadas a mano.
 

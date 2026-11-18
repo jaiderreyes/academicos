@@ -1,3 +1,4 @@
+# Renombra a casos.yaml cuando esté ajustada: mientras se llame casos.plantilla.yaml NO se ejecuta.
 # PLANTILLA de casos para "Bóveda de fichas". Ajusta `args`, `stdin` y `esperado` a la
 # interfaz que exige el enunciado (cada estudiante expone su propio main).
 # Los archivos de este directorio quedan disponibles en el contenedor como `_casos/`.
