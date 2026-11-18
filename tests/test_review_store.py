@@ -95,3 +95,16 @@ class GeneralTest(unittest.TestCase):
         md = open(rutas["md"], encoding="utf-8").read()
         self.assertIn("Ajuste docente", md)
         self.assertIn("Reporte general por estudiante", md)
+
+
+class HtmlTest(unittest.TestCase):
+    def test_html_legible_con_sancion_y_nombre_corto(self):
+        from academicos.review.report import export_general_html, _corto
+        a = dict(RES); a["estudiante"] = "JUAN SEBASTIAN CABRALES MONTALVO_183330_assignsubmission_file"
+        a["sancion"] = {"nota": 0.0, "motivo": "m", "parejas": ["MANUEL X_183329_assignsubmission_file"]}
+        self.assertEqual(_corto(a["estudiante"]), "Juan Sebastian Cabrales Montalvo")
+        d = tempfile.mkdtemp()
+        h = open(export_general_html([a], {"pares": []}, d), encoding="utf-8").read()
+        self.assertIn("Ajuste docente por similitud", h)
+        self.assertIn("Juan Sebastian Cabrales Montalvo", h)
+        self.assertNotIn("assignsubmission", h)

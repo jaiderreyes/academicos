@@ -201,12 +201,17 @@ def export_general(resultados, sim, outdir):
     w.writerow(["estudiante", "proyecto", "nota_final", "nota_automatica", "maximo_posible", "completa",
                 "compila"] + [f"{i}_nivel" for i in ids] + [f"{i}_nota" for i in ids] +
                ["similitud_con", "ajuste_docente", "que_falta", "recomendaciones", "errores"])
+    rs = sorted(resultados, key=lambda x: x["estudiante"])
+    sanc = [r for r in rs if r.get("sancion")]
     L = ["# Reporte general por estudiante", "",
-         "La nota final es la automática parcial (sin informe ni confirmación de «excelente»), salvo ajuste docente. "
-         f"{len(resultados)} entrega(s).", "",
-         "| Estudiante | Nota final | Parcial automática (máx.) | Compila | Similitud |", "|---|---|---|---|---|"]
+         f"**{len(rs)} entregas** · {len(sanc)} con ajuste docente por similitud · "
+         f"{sum(1 for r in rs if not r.get('calificacion'))} sin código evaluable", "",
+         "> Nota final = parcial automática (sin informe ni «excelente»), salvo ajuste docente (⚠ = 0.0 por similitud).", "",
+         "## Resumen", "",
+         "| Estudiante | Nota final | Modelado | Estructuras | Validación | Observación |",
+         "|---|---|---|---|---|---|"]
     detalle = []
-    for r in sorted(resultados, key=lambda x: x["estudiante"]):
+    for r in rs:
         k = r.get("calificacion")
         nf = _nota_final(r)
         niv = {n["id"]: n for n in r.get("niveles", [])}
@@ -220,24 +225,154 @@ def export_general(resultados, sim, outdir):
                     *["" if i not in niv or niv[i]["nota"] is None else niv[i]["nota"] for i in ids],
                     sim_txt, r["sancion"]["motivo"] if r.get("sancion") else "",
                     " | ".join(falta), " | ".join(recs), " | ".join(r.get("errores", []))])
-        auto = "—" if not k else f"{k['nota_sugerida']:.2f} (máx. {k['maximo_posible']:.2f})"
-        L.append(f"| {r['estudiante']} | {'—' if nf is None else f'{nf:.2f}'}{' ⚠' if r.get('sancion') else ''} | {auto} | {comp or '—'} | {sim_txt or '—'} |")
-        d = [f"### {r['estudiante']}", ""]
+        nombre = _corto(r["estudiante"])
+        obs = []
         if r.get("errores"):
-            d += ["Errores: " + "; ".join(r["errores"]), ""]
+            obs.append("sin código evaluable")
+        if comp == "fail":
+            obs.append("no compila")
+        if r.get("sancion"):
+            obs.append("ajuste por similitud")
+        elif parejas.get(r["estudiante"]):
+            obs.append("similitud a revisar")
+        col = lambda i: (niv[i]["nivel"] if i in niv else "—")
+        nota_txt = "—" if nf is None else f"{nf:.2f}" + (" ⚠" if r.get("sancion") else "")
+        L.append(f"| {nombre} | {nota_txt} | {col('modelado')} | {col('estructuras')} | {col('validacion')} | {', '.join(obs) or '—'} |")
+        d = [f"### {nombre}", ""]
+        if r.get("errores"):
+            d += [f"- Error: {'; '.join(r['errores'])}", ""]
         else:
-            d += ["- Niveles: " + ", ".join(f"{i} → {n['nivel']}" + ("" if n["nota"] is None else f" ({n['nota']:.2f})")
-                                           for i, n in niv.items())]
+            d += [f"- **Nota final:** {nota_txt} · parcial automática {k['nota_sugerida']:.2f} (máx. {k['maximo_posible']:.2f})"]
+            d += ["- **Niveles:** " + ", ".join(f"{i} → {n['nivel']}" + ("" if n["nota"] is None else f" ({n['nota']:.2f})")
+                                               for i, n in niv.items())]
             if r.get("sancion"):
-                d += [f"- **Ajuste docente: nota final {r['sancion']['nota']:.1f}** — {r['sancion']['motivo']}; "
-                      "coincide con " + "; ".join(r["sancion"]["parejas"])]
+                d += [f"- **Ajuste docente:** nota 0.0. {r['sancion']['motivo']}. Coincide con: " +
+                      "; ".join(_corto(x) for x in r["sancion"]["parejas"])]
+            elif parejas.get(r["estudiante"]):
+                d += ["- **Similitud con:** " + "; ".join(f"{_corto(b)} ({v:.2f})" for b, v in parejas[r["estudiante"]])]
             if falta:
-                d += ["- Qué falta: " + " · ".join(falta)]
+                d += ["- **Qué falta:**"] + [f"  - {x}" for x in falta]
             if recs:
-                d += ["- Recomendaciones: " + " · ".join(recs)]
+                d += ["- **Recomendaciones:**"] + [f"  - {x}" for x in recs]
             d += [""]
         detalle += d
-    L += ["", "⚠ = nota final con ajuste docente por similitud.", "", "## Detalle", ""] + detalle
+    L += ["", "## Detalle por estudiante", ""] + detalle
     (outdir / "reporte_general.csv").write_text(buf.getvalue(), encoding="utf-8")
     (outdir / "reporte_general.md").write_text("\n".join(L) + "\n", encoding="utf-8")
     return {"csv": str(outdir / "reporte_general.csv"), "md": str(outdir / "reporte_general.md")}
+
+
+def _corto(nombre):
+    n = re.sub(r"(_assignsubmission_file)$", "", nombre)
+    n = re.sub(r"_?\d{4,}_?$", "", n)
+    return re.sub(r"_\d?$", "", n).replace("_", " ").strip().title()
+
+
+_CHIP = {"deficiente": "#fde2e0:#9b1c1c", "regular": "#fff1cc:#8a5a00", "bueno": "#dff3e4:#1b6b34",
+         "excelente": "#d6e8ff:#164e91"}
+
+
+def _esc(t):
+    return str(t).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def export_general_html(resultados, sim, outdir):
+    """Reporte general legible: resumen arriba y una tarjeta desplegable por estudiante."""
+    from html import escape  # noqa: F401
+    outdir = Path(outdir)
+    parejas = {}
+    for p in (sim or {}).get("pares", []):
+        parejas.setdefault(p["a"], []).append((p["b"], p["puntaje"]))
+        parejas.setdefault(p["b"], []).append((p["a"], p["puntaje"]))
+    rs = sorted(resultados, key=lambda x: x["estudiante"])
+    ok = [r for r in rs if r.get("calificacion")]
+    sanc = [r for r in rs if r.get("sancion")]
+    sin = [r for r in rs if not r.get("calificacion")]
+    prom = [x for x in (_nota_final(r) for r in ok) if x is not None]
+    media = sum(prom) / len(prom) if prom else 0
+    tarjetas = []
+    for r in rs:
+        nf = _nota_final(r)
+        k = r.get("calificacion")
+        niv = r.get("niveles", [])
+        chips = "".join(
+            '<span class="chip" style="background:%s;color:%s" title="%s">%s: %s</span>' % (
+                _CHIP.get(n["nivel"], "#eee:#333").split(":")[0], _CHIP.get(n["nivel"], "#eee:#333").split(":")[1],
+                _esc(n["id"]), _esc(n["id"][:4].title()), _esc(n["nivel"])) for n in niv)
+        if not k:
+            nota_html, cls = '<span class="nota na">sin nota</span>', "bad"
+        elif r.get("sancion"):
+            nota_html, cls = '<span class="nota cero">0.0</span>', "bad"
+        else:
+            nota_html, cls = f'<span class="nota">{nf:.2f}</span>', ""
+        etiqueta = ""
+        if r.get("sancion"):
+            etiqueta = '<span class="tag rojo">Ajuste docente por similitud</span>'
+        elif parejas.get(r["estudiante"]):
+            etiqueta = '<span class="tag ambar">Similitud a revisar</span>'
+        if (r.get("compilacion") or {}).get("status") == "fail":
+            etiqueta += '<span class="tag rojo">No compila</span>'
+        falta, recs = por_mejorar(r) if k else ([], [])
+        cuerpo = []
+        if r.get("errores"):
+            cuerpo.append("<h4>Error</h4><ul>" + "".join(f"<li>{_esc(e)}</li>" for e in r["errores"]) + "</ul>")
+        if k:
+            cuerpo.append(f"<p class='peq'>Parcial automática <b>{k['nota_sugerida']:.2f}</b> · máximo posible "
+                          f"<b>{k['maximo_posible']:.2f}</b> (falta el informe y confirmar «excelente»).</p>")
+            cuerpo.append("<table class='niv'><tr><th>Criterio</th><th>Nivel</th><th>Nota</th></tr>" + "".join(
+                f"<tr><td>{_esc(n['id'])}</td><td>{_esc(n['nivel'])}</td><td>{'—' if n['nota'] is None else format(n['nota'], '.2f')}</td></tr>"
+                for n in niv) + "</table>")
+        if r.get("sancion"):
+            cuerpo.append("<div class='aviso rojo'><b>Ajuste docente: nota final %.1f.</b> %s. Coincide con: %s.<br>"
+                          "<small>Es una decisión de la persona docente; la similitud es un indicio, no una prueba.</small></div>" % (
+                              r["sancion"]["nota"], _esc(r["sancion"]["motivo"]),
+                              _esc("; ".join(_corto(x) for x in r["sancion"]["parejas"]))))
+        elif parejas.get(r["estudiante"]):
+            cuerpo.append("<div class='aviso ambar'>Similitud con: " + _esc("; ".join(
+                f"{_corto(b)} ({v:.2f})" for b, v in parejas[r['estudiante']])) + "</div>")
+        if falta:
+            cuerpo.append("<h4>Qué falta</h4><ul>" + "".join(f"<li>{_esc(x)}</li>" for x in falta) + "</ul>")
+        if recs:
+            cuerpo.append("<h4>Recomendaciones</h4><ul>" + "".join(f"<li>{_esc(x)}</li>" for x in recs) + "</ul>")
+        tarjetas.append(
+            f'<details class="card {cls}" data-n="{_esc(_corto(r["estudiante"]).lower())}"><summary>'
+            f'<span class="nom">{_esc(_corto(r["estudiante"]))}</span>{nota_html}'
+            f'<span class="chips">{chips}</span><span class="tags">{etiqueta}</span></summary>'
+            f'<div class="cuerpo">{"".join(cuerpo)}</div></details>')
+    html = f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Reporte general por estudiante</title>
+<style>
+body{{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f5f6f8;color:#1f2430}}
+header{{background:#1f2a44;color:#fff;padding:24px 32px}} h1{{margin:0 0 4px;font-size:22px}}
+.sub{{opacity:.8;font-size:13px}} .res{{display:flex;gap:12px;flex-wrap:wrap;padding:16px 32px}}
+.k{{background:#fff;border-radius:10px;padding:12px 18px;box-shadow:0 1px 2px #0001;min-width:130px}}
+.k b{{display:block;font-size:24px}} .k span{{font-size:12px;color:#667}}
+.barra{{padding:0 32px 8px}} input{{padding:9px 12px;width:280px;border:1px solid #ccd;border-radius:8px;font-size:14px}}
+main{{padding:8px 32px 40px;max-width:1100px}}
+.card{{background:#fff;border-radius:10px;margin:8px 0;box-shadow:0 1px 2px #0001;border-left:5px solid #2e9b57}}
+.card.bad{{border-left-color:#c0392b}} summary{{display:flex;align-items:center;gap:14px;padding:12px 16px;cursor:pointer;flex-wrap:wrap}}
+.nom{{font-weight:600;min-width:260px}} .nota{{font-size:20px;font-weight:700;min-width:64px}}
+.nota.cero{{color:#c0392b}} .nota.na{{font-size:13px;color:#888;font-weight:400}}
+.chip{{display:inline-block;padding:2px 9px;border-radius:12px;font-size:12px;margin-right:5px}}
+.tag{{display:inline-block;padding:2px 9px;border-radius:12px;font-size:12px;margin-right:5px;color:#fff}}
+.rojo{{background:#c0392b}} .ambar{{background:#c98a00}}
+.cuerpo{{padding:4px 20px 16px;border-top:1px solid #eee}} h4{{margin:14px 0 4px;font-size:13px;color:#445}}
+ul{{margin:4px 0 0;padding-left:20px;font-size:13.5px;line-height:1.5}} .peq{{font-size:13.5px}}
+.niv{{border-collapse:collapse;font-size:13px}} .niv td,.niv th{{padding:3px 14px 3px 0;text-align:left}}
+.aviso{{padding:10px 14px;border-radius:8px;font-size:13.5px;margin:10px 0}}
+.aviso.rojo{{background:#fdecea;color:#7a1f16}} .aviso.ambar{{background:#fff4d6;color:#6b4a00}}
+</style></head><body>
+<header><h1>Reporte general por estudiante</h1>
+<div class="sub">Nota final = parcial automática (sin informe ni «excelente»), salvo ajuste docente. Haz clic en un estudiante para ver el detalle.</div></header>
+<div class="res"><div class="k"><b>{len(rs)}</b><span>entregas</span></div>
+<div class="k"><b>{media:.2f}</b><span>promedio de nota final</span></div>
+<div class="k"><b>{len(sanc)}</b><span>con ajuste por similitud</span></div>
+<div class="k"><b>{len(sin)}</b><span>sin código evaluable</span></div></div>
+<div class="barra"><input id="q" placeholder="Buscar estudiante…" oninput="f()"></div>
+<main>{"".join(tarjetas)}</main>
+<script>function f(){{var q=document.getElementById('q').value.toLowerCase();
+document.querySelectorAll('.card').forEach(function(c){{c.style.display=c.dataset.n.indexOf(q)<0?'none':''}})}}</script>
+</body></html>"""
+    ruta = outdir / "reporte_general.html"
+    ruta.write_text(html, encoding="utf-8")
+    return str(ruta)
