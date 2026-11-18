@@ -182,6 +182,12 @@ Los formatos no soportados no cambian por sí solos el código de salida.
 Cada resultado se confirma inmediatamente en SQLite; el reporte JSON se publica al finalizar o al capturar una interrupción.
 Una terminación abrupta puede impedir el reporte, pero no elimina eventos confirmados.
 
+## Revisión de proyectos de programación
+
+Revisa entregas Java contra una rúbrica YAML, ejecutando el código solo dentro de Docker,
+con casos tomados del enunciado, criterios manuales aparte y similitud entre entregas.
+Guía completa: `docs/REVISION_PROYECTOS.md`. Spec: `specs/006-revision-proyectos-programacion/`.
+
 ## Garantías de recuperación
 
 Los artefactos y vistas se escriben en temporales, se sincronizan y se publican mediante reemplazo atómico.

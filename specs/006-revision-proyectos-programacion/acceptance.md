@@ -10,10 +10,19 @@
 - AC-J07: dos entregas con código casi idéntico aparecen como par sobre el umbral.
 - AC-J08: el reporte distingue criterios automáticos de criterios manuales (informe,
   defensa) y no inventa puntaje para los manuales.
-- AC-J09: sobre las tres entregas reales, la nota sugerida queda dentro de ±0.3 de la
-  nota asignada a mano, o la diferencia se explica en el reporte.
+- AC-J09: sobre las tres entregas reales, la nota automática (con el informe aún pendiente
+  se compara el máximo posible) no supera la nota a mano y queda dentro de ±0.3, o la
+  diferencia se explica en el reporte. Verificado 2026-11-18: Esteban máx. 4.2 vs 4.7 a mano
+  (diferencia por niveles "excelente", que solo confirma la persona docente); José Tomás
+  máx. 4.2 vs 4.0 (el informe pendiente aún no descuenta); Diego 0.33 vs 2.3 (su archivo
+  no compila tal como lo entregó; la nota a mano valoró una reconstrucción).
 - AC-J10: el código de una entrega se ejecuta con `--network none`; un intento de red falla.
 - AC-J11: sin Docker, los pasos de ejecución se marcan "no verificable" y la rúbrica
   estática igual se evalúa.
 - AC-J12: un criterio manual sin puntuar queda "pendiente" y el total se muestra parcial.
 - AC-J13: los casos de prueba se toman de la carpeta del parcial, no del proyecto del estudiante.
+- AC-J14: un nivel marcado `manual: true` ("excelente") nunca se asigna solo: queda como
+  "pendiente de tu revisión" y solo cambia con un `ajuste` que declare su `motivo`.
+- AC-J15: la clase principal y los argumentos de ejecución salen de la rúbrica
+  (`ejecucion.clase_principal`); si el estudiante la nombra distinto, se avisa.
+- AC-J16: lo que bloquea cada nivel y lo que no pudo verificarse aparece en el reporte.
