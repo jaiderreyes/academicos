@@ -91,7 +91,8 @@ def markdown(r):
             nota = "—" if n["nota"] is None else f"{n['nota']:.2f}"
             sin = sorted(set(n["sin_verificar"]) | set(n.get("no_verificados_siguiente", [])))
             L.append(f"| {n['id']} | {n['nivel']} | {', '.join(n['bloqueado_por']) or '—'} | {', '.join(sin) or '—'} | {nota} |")
-        L += ["", "La nota automática es el límite inferior del nivel confirmado."]
+        L += ["", ("La nota automática es el centro del rango del nivel confirmado (criterio de la rúbrica)."
+                if r.get("nota_en_nivel") == "medio" else "La nota automática es el límite inferior del nivel confirmado.")]
     if r.get("confirmaciones_docentes"):
         L += ["", "**Pendiente de tu revisión** (solo la persona docente puede confirmarlo): " +
               "; ".join(f"{x['criterio']} → {x['nivel']}" for x in r["confirmaciones_docentes"]) +

@@ -177,3 +177,13 @@ class EvaluateNivelesTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PuntoEnNivelTest(unittest.TestCase):
+    def test_medio_usa_el_centro_del_rango(self):
+        c = crit()
+        base = evaluar_criterio(c, {"a": True, "b": True, "c": True})
+        medio = evaluar_criterio(c, {"a": True, "b": True, "c": True}, "medio")
+        n = [x for x in c.niveles if x.nombre == medio["nivel"]][0]
+        self.assertEqual(base["nota"], n.min)
+        self.assertEqual(medio["nota"], (n.min + n.max) / 2)

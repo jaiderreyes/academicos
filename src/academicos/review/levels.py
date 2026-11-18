@@ -6,11 +6,12 @@ Reglas de honestidad:
 - un requisito incumplido (False) bloquea el ascenso;
 - un requisito sin verificar (None) deja el criterio pendiente: no se concluye;
 - un nivel marcado `manual` solo lo confirma la persona docente;
-- la nota automática de un nivel es su límite inferior (criterio conservador).
+- la nota automática de un nivel es su límite inferior (criterio conservador) o, si la rúbrica
+  lo indica (`ejecucion.nota_en_nivel: medio`), el centro de su rango.
 """
 
 
-def evaluar_criterio(criterio, hechos):
+def evaluar_criterio(criterio, hechos, punto="minimo"):
     """Devuelve el estado del criterio según los `hechos` {id: True|False|None}."""
     niveles = criterio.niveles
     alcanzado, bloqueo, sin_verificar, confirmar = 0, [], [], None
@@ -48,7 +49,8 @@ def evaluar_criterio(criterio, hechos):
         res["progreso"] = round(progreso, 3)
         nota = base.min + (base.max - base.min) * progreso
     else:
-        nota = base.min
+        # "minimo": límite inferior del nivel (conservador); "medio": centro del rango (decisión docente).
+        nota = (base.min + base.max) / 2 if punto == "medio" else base.min
     res.update(estado="puntuado", nota=round(nota, 4))
     return res
 

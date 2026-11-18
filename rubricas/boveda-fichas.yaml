@@ -12,6 +12,7 @@ aprobacion: 3.0
 #   java -cp out app.Main datos/ejemplo_valido.txt
 ejecucion:
   clase_principal: app.Main
+  nota_en_nivel: medio   # decisión docente: cada nivel confirmado vale el centro de su rango
 
 # Carpeta (relativa a esta rúbrica) con los casos de prueba de la persona docente
 casos: ../casos/boveda-fichas

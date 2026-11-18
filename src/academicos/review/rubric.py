@@ -61,6 +61,7 @@ class Rubrica:
     verificaciones: tuple = field(default_factory=tuple)
     casos: str = ""
     clase_principal: str = ""   # clase con main() que se ejecuta (p. ej. app.Main)
+    nota_en_nivel: str = "minimo"   # nota de un criterio al confirmar un nivel: minimo | medio
 
 
 def _num(valor, campo):
@@ -171,11 +172,14 @@ def parse_rubric(datos):
     if not isinstance(ejec, dict):
         raise RubricError("'ejecucion' debe ser un mapa")
     clase_principal = str(ejec.get("clase_principal") or "")
+    nota_en_nivel = str(ejec.get("nota_en_nivel") or "minimo")
+    if nota_en_nivel not in ("minimo", "medio"):
+        raise RubricError("ejecucion.nota_en_nivel debe ser 'minimo' o 'medio'")
     casos = datos.get("casos") or ""
     if casos and not isinstance(casos, str):
         raise RubricError("'casos' debe ser una ruta de carpeta")
     return Rubrica(nombre.strip(), emin, emax, aprobacion, tope,
-                   tuple(criterios), tuple(requisitos), verificaciones, casos, clase_principal)
+                   tuple(criterios), tuple(requisitos), verificaciones, casos, clase_principal, nota_en_nivel)
 
 
 def load_rubric(path):
