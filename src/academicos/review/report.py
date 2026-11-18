@@ -24,8 +24,8 @@ _PISTAS = {
 def por_mejorar(r):
     """Qué falta y qué recomendar, derivado solo de los hechos del resultado (sin inventar)."""
     desc = dict(r.get("descripciones", {}))
-    desc.update({v["id"]: v["descripcion"] for v in r.get("verificaciones", [])})
-    desc.update({c["id"]: c["descripcion"] for c in r.get("casos", [])})
+    desc.update({v["id"]: v.get("descripcion", v["id"]) for v in r.get("verificaciones", [])})
+    desc.update({c["id"]: c.get("descripcion", c["id"]) for c in r.get("casos", [])})
     desc["compila"] = "El proyecto compila"
     falta, recs, vistos = [], [], set()
 
@@ -174,3 +174,70 @@ def export_course(resultados, outdir):
     ruta = outdir / "consolidado.csv"
     ruta.write_text(buf.getvalue(), encoding="utf-8")
     return str(ruta)
+
+
+def _nota_final(r):
+    if r.get("sancion"):
+        return r["sancion"]["nota"]
+    k = r.get("calificacion")
+    return k["nota_sugerida"] if k else None
+
+
+def export_general(resultados, sim, outdir):
+    """Reporte general por estudiante: una tabla (CSV) y un documento (MD) con todos."""
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    parejas = {}
+    for p in (sim or {}).get("pares", []):
+        parejas.setdefault(p["a"], []).append((p["b"], p["puntaje"]))
+        parejas.setdefault(p["b"], []).append((p["a"], p["puntaje"]))
+    ids = []
+    for r in resultados:
+        for n in r.get("niveles", []):
+            if n["id"] not in ids:
+                ids.append(n["id"])
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["estudiante", "proyecto", "nota_final", "nota_automatica", "maximo_posible", "completa",
+                "compila"] + [f"{i}_nivel" for i in ids] + [f"{i}_nota" for i in ids] +
+               ["similitud_con", "ajuste_docente", "que_falta", "recomendaciones", "errores"])
+    L = ["# Reporte general por estudiante", "",
+         "La nota final es la automática parcial (sin informe ni confirmación de «excelente»), salvo ajuste docente. "
+         f"{len(resultados)} entrega(s).", "",
+         "| Estudiante | Nota final | Parcial automática (máx.) | Compila | Similitud |", "|---|---|---|---|---|"]
+    detalle = []
+    for r in sorted(resultados, key=lambda x: x["estudiante"]):
+        k = r.get("calificacion")
+        nf = _nota_final(r)
+        niv = {n["id"]: n for n in r.get("niveles", [])}
+        falta, recs = por_mejorar(r) if k else ([], [])
+        sim_txt = "; ".join(f"{b} ({v:.2f})" for b, v in parejas.get(r["estudiante"], []))
+        comp = (r.get("compilacion") or {}).get("status", "")
+        w.writerow([r["estudiante"], r.get("proyecto", ""), "" if nf is None else nf,
+                    "" if not k else k["nota_sugerida"], "" if not k else k["maximo_posible"],
+                    "" if not k else k["completo"], comp,
+                    *[niv[i]["nivel"] if i in niv else "" for i in ids],
+                    *["" if i not in niv or niv[i]["nota"] is None else niv[i]["nota"] for i in ids],
+                    sim_txt, r["sancion"]["motivo"] if r.get("sancion") else "",
+                    " | ".join(falta), " | ".join(recs), " | ".join(r.get("errores", []))])
+        auto = "—" if not k else f"{k['nota_sugerida']:.2f} (máx. {k['maximo_posible']:.2f})"
+        L.append(f"| {r['estudiante']} | {'—' if nf is None else f'{nf:.2f}'}{' ⚠' if r.get('sancion') else ''} | {auto} | {comp or '—'} | {sim_txt or '—'} |")
+        d = [f"### {r['estudiante']}", ""]
+        if r.get("errores"):
+            d += ["Errores: " + "; ".join(r["errores"]), ""]
+        else:
+            d += ["- Niveles: " + ", ".join(f"{i} → {n['nivel']}" + ("" if n["nota"] is None else f" ({n['nota']:.2f})")
+                                           for i, n in niv.items())]
+            if r.get("sancion"):
+                d += [f"- **Ajuste docente: nota final {r['sancion']['nota']:.1f}** — {r['sancion']['motivo']}; "
+                      "coincide con " + "; ".join(r["sancion"]["parejas"])]
+            if falta:
+                d += ["- Qué falta: " + " · ".join(falta)]
+            if recs:
+                d += ["- Recomendaciones: " + " · ".join(recs)]
+            d += [""]
+        detalle += d
+    L += ["", "⚠ = nota final con ajuste docente por similitud.", "", "## Detalle", ""] + detalle
+    (outdir / "reporte_general.csv").write_text(buf.getvalue(), encoding="utf-8")
+    (outdir / "reporte_general.md").write_text("\n".join(L) + "\n", encoding="utf-8")
+    return {"csv": str(outdir / "reporte_general.csv"), "md": str(outdir / "reporte_general.md")}

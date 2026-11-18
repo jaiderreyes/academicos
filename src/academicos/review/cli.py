@@ -8,7 +8,7 @@ from .evaluate import evaluar_entrega
 from .store import ReviewStore, historial
 from .similarity import UMBRAL, aplicar_sancion, cargar_base, comparar, markdown as sim_markdown
 from .levels import ids_desconocidos
-from .report import export_course, export_student
+from .report import export_course, export_general, export_student
 from .rubric import RubricError, load_rubric
 from .runner import DEFAULT_IMAGE, DockerRunner, selfcheck
 
@@ -148,6 +148,7 @@ def run_review(args):
         export_student(r, args.salida)
         store.add_student(run_id, r)
     print(f"Consolidado: {export_course(resultados, args.salida)}")
+    print(f"Reporte general: {export_general(resultados, sim, args.salida)['md']}")
     store.add_similarity(run_id, sim)
     store.close()
     (Path(args.salida) / "similitud.md").write_text(sim_markdown(sim), encoding="utf-8")

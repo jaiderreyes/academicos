@@ -77,3 +77,21 @@ class MejoraTest(unittest.TestCase):
     def test_sin_pendientes(self):
         from academicos.review.report import por_mejorar
         self.assertEqual(por_mejorar({}), ([], []))
+
+
+class GeneralTest(unittest.TestCase):
+    def test_reporte_general_incluye_sancion_similitud_y_falta(self):
+        import csv as _csv
+        from academicos.review.report import export_general
+        a = dict(RES); a["estudiante"] = "Ana"; a["sancion"] = {"nota": 0.0, "motivo": "m", "parejas": ["Luis"]}
+        b = dict(RES); b["estudiante"] = "Luis"
+        sim = {"pares": [{"a": "Ana", "b": "Luis", "puntaje": 1.0}]}
+        d = tempfile.mkdtemp()
+        rutas = export_general([a, b], sim, d)
+        filas = list(_csv.DictReader(open(rutas["csv"], encoding="utf-8")))
+        self.assertEqual(filas[0]["nota_final"], "0.0")
+        self.assertEqual(filas[1]["nota_final"], "3.2")
+        self.assertIn("Luis (1.00)", filas[0]["similitud_con"])
+        md = open(rutas["md"], encoding="utf-8").read()
+        self.assertIn("Ajuste docente", md)
+        self.assertIn("Reporte general por estudiante", md)
