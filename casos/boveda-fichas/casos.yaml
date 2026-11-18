@@ -135,6 +135,7 @@ casos:
       salida_no_regex:
         - '(?i)exception in thread'
   - id: comparacion_variantes
+    heuristico: true   # el enunciado no fija el texto: si no coincide, lo revisa la persona docente
     descripcion: "HEURÍSTICO: la ejecución compara manual vs java.util e informa equivalencia"
     args: ["_casos/ejemplo_valido.txt"]
     esperado:

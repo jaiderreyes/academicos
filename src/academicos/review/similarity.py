@@ -7,8 +7,10 @@ comentarios ni literales. Se calcula de dos formas y se toma la mayor:
     renombrar variables no oculte la coincidencia.
 Es un indicio para revisar a mano, nunca una prueba de copia. Todo ocurre en local.
 """
+import hashlib
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 from .checks import strip_comments_and_strings
 
@@ -43,8 +45,39 @@ def _shingles(tokens):
     return {" ".join(tokens[i:i + N]) for i in range(len(tokens) - N + 1)}
 
 
-def huella_de(raiz, archivos, excluir=()):
-    """Huella de un proyecto: dict con conjuntos de n-gramas literales y normalizados."""
+def firma_archivo(texto):
+    """Firma de un archivo ignorando comentarios y espacios (detecta archivos sin modificar)."""
+    return hashlib.sha256(" ".join(_tokens(texto)).encode("utf-8")).hexdigest()
+
+
+def cargar_base(carpeta):
+    """Base entregada por la persona docente: firmas por archivo y huella para restar."""
+    carpeta = Path(carpeta)
+    archivos = [SimpleNamespace(path=p.relative_to(carpeta).as_posix()) for p in sorted(carpeta.rglob("*.java"))]
+    if not archivos:
+        raise ValueError(f"no hay archivos .java en la base {carpeta}")
+    firmas = {firma_archivo((carpeta / a.path).read_text(encoding="utf-8", errors="replace")) for a in archivos}
+    return {"nombre": carpeta.name, "firmas": firmas, "archivos": len(archivos),
+            "huella": huella_de(carpeta, archivos, minimo=0)}
+
+
+def archivos_sin_modificar(raiz, archivos, base):
+    """Rutas de archivos idénticos (salvo comentarios/espacios) a alguno de la base."""
+    out = set()
+    for f in archivos:
+        try:
+            texto = (Path(raiz) / f.path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if firma_archivo(texto) in base["firmas"]:
+            out.add(f.path)
+    return out
+
+
+def huella_de(raiz, archivos, excluir=(), base=None, minimo=MIN_TOKENS):
+    """Huella de un proyecto: dict con conjuntos de n-gramas literales y normalizados.
+
+    Con `base`, se restan los n-gramas de la base: solo cuenta el código añadido."""
     toks = []
     for f in sorted(archivos, key=lambda a: a.path):
         if f.path in excluir:
@@ -54,9 +87,12 @@ def huella_de(raiz, archivos, excluir=()):
         except OSError:
             continue
         toks.extend(_tokens(texto))
-    if len(toks) < MIN_TOKENS:
+    lit, nor = _shingles(toks), _shingles(_normalizar(toks))
+    if base:
+        lit, nor = lit - base["huella"]["literal"], nor - base["huella"]["normalizada"]
+    if len(toks) < minimo or (base and len(lit) < MIN_TOKENS - N + 1):
         return {"tokens": len(toks), "literal": set(), "normalizada": set()}
-    return {"tokens": len(toks), "literal": _shingles(toks), "normalizada": _shingles(_normalizar(toks))}
+    return {"tokens": len(toks), "literal": lit, "normalizada": nor}
 
 
 def _jaccard(a, b):

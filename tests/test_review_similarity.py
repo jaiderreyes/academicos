@@ -53,3 +53,33 @@ class SimilitudTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BaseTest(unittest.TestCase):
+    def _carpeta(self, nombre, texto):
+        d = Path(tempfile.mkdtemp()) / nombre
+        d.mkdir()
+        (d / "A.java").write_text(texto, encoding="utf-8")
+        return d
+
+    def test_la_base_se_resta_y_los_archivos_sin_modificar_se_detectan(self):
+        from academicos.review.similarity import cargar_base, archivos_sin_modificar
+        base = cargar_base(self._carpeta("base", BASE))
+        d = self._carpeta("est", BASE.replace("// comentario", "// mio  "))
+        self.assertEqual(archivos_sin_modificar(d, [NS(path="A.java")], base), {"A.java"})
+        # idéntico a la base: tras restarla no queda código propio
+        h = huella_de(d, [NS(path="A.java")], base=base)
+        self.assertEqual(h["literal"], set())
+
+    def test_solo_el_codigo_anadido_cuenta_para_la_similitud(self):
+        from academicos.review.similarity import cargar_base
+        GRANDE = BASE + "".join(f"\nclass C{i} {{ int m{i}(int a){{ if (a > {i}) {{ return a * {i} + a; }} return a - {i}; }} }}" for i in range(25))
+        base = cargar_base(self._carpeta("base", GRANDE))
+        extra1 = "\nclass P { int f(int q){ for (int i=0;i<q;i++){ q = q + i * 3; } return q; } int g(int w){ return w - f(w); } }"
+        extra2 = "\nclass Z { String h(String s){ if (s == null) { return \"\"; } return s.trim() + s.length(); } void k(){ h(null); h(\"a\"); } }"
+        d1 = self._carpeta("e1", GRANDE + extra1)
+        d2 = self._carpeta("e2", GRANDE + extra2)
+        sin = comparar({"a": huella_de(d1, [NS(path="A.java")]), "b": huella_de(d2, [NS(path="A.java")])})
+        con = comparar({"a": huella_de(d1, [NS(path="A.java")], base=base), "b": huella_de(d2, [NS(path="A.java")], base=base)})
+        self.assertEqual(len(sin["pares"]), 1)       # sin base parecen copias por el código común
+        self.assertEqual(con["pares"], [])           # restando la base ya no

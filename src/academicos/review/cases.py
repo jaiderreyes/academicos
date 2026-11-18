@@ -50,7 +50,8 @@ def load_cases(folder, requisitos_validos=()):
         args = [str(a) for a in (c.get("args") or [])]
         casos.append({"id": cid, "descripcion": str(c.get("descripcion", cid)),
                       "args": args, "stdin": c.get("stdin"), "requisito": req,
-                      "esperado": esperado, "timeout": int(c.get("timeout", 30))})
+                      "esperado": esperado, "timeout": int(c.get("timeout", 30)),
+                      "heuristico": bool(c.get("heuristico", False))})
     return casos
 
 
@@ -112,7 +113,10 @@ def run_cases(runner, info, work, casos_dir, casos, main_class=None, compile_tim
                                    "paso": paso.to_dict()})
                 continue
             fallas = evaluar_salida(c["esperado"], paso)
-            resultados.append({**base, "estado": "ok" if not fallas else "fail",
+            # Un caso heurístico (regex sobre texto libre) que no coincide no prueba un fallo:
+            # queda "revisar" y deja el criterio pendiente de la persona docente.
+            malo = "revisar" if c.get("heuristico") else "fail"
+            resultados.append({**base, "estado": "ok" if not fallas else malo,
                                "fallas": fallas, "paso": paso.to_dict()})
         return {"compilacion": comp, "casos": resultados}
     finally:

@@ -6,7 +6,7 @@ from pathlib import Path
 from .cases import CaseError, load_cases
 from .evaluate import evaluar_entrega
 from .store import ReviewStore, historial
-from .similarity import UMBRAL, comparar, markdown as sim_markdown
+from .similarity import UMBRAL, cargar_base, comparar, markdown as sim_markdown
 from .levels import ids_desconocidos
 from .report import export_course, export_student
 from .rubric import RubricError, load_rubric
@@ -29,6 +29,8 @@ def add_parser(sub):
     his.add_argument("--estudiante", default=None)
 
     def comunes(p):
+        p.add_argument("--base", type=Path, default=None,
+                       help="Carpeta con el código base que entregó la persona docente (se resta de similitud y verificaciones)")
         p.add_argument("--rubrica", type=Path, required=True)
         p.add_argument("--salida", type=Path, required=True, help="Carpeta de reportes")
         p.add_argument("--manuales", type=Path, help="Carpeta con <estudiante>.yaml de criterios manuales")
@@ -111,11 +113,12 @@ def run_review(args):
     rubrica = load_rubric(args.rubrica)
     runner = _runner(args)
     casos = _casos_dir(args, rubrica)
+    base = cargar_base(args.base) if args.base else None
     if not args.no_docker and not runner.available():
         print("Aviso: Docker no está disponible; compilar y ejecutar quedará sin verificar.")
     if args.review_command == "run":
         r = evaluar_entrega(rubrica, args.rubrica.parent, args.estudiante, runner, args.proyecto,
-                            _manual(args, args.estudiante.name), casos)
+                            _manual(args, args.estudiante.name), casos, base)
         rutas = export_student(r, args.salida)
         with closing(ReviewStore(args.salida)) as store:
             store.add_student(store.start_run(args.rubrica, rubrica.nombre), r)
@@ -129,7 +132,7 @@ def run_review(args):
     run_id = store.start_run(args.rubrica, rubrica.nombre, args.curso, args.umbral)
     for carpeta in carpetas:
         r = evaluar_entrega(rubrica, args.rubrica.parent, carpeta, runner, None,
-                            _manual(args, carpeta.name), casos)
+                            _manual(args, carpeta.name), casos, base)
         export_student(r, args.salida)
         store.add_student(run_id, r)
         resultados.append(r)

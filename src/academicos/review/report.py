@@ -45,6 +45,8 @@ def por_mejorar(r):
         for cid in sorted(set(n.get("sin_verificar", [])) | set(n.get("no_verificados_siguiente", []))):
             anotar(cid, f"sin verificar; necesario para {n['id']} → {sig}")
     for c in r.get("casos", []):
+        if c["estado"] == "revisar":
+            falta.append(f"Revisión docente del caso heurístico «{c['id']}» (la salida no coincidió con el texto esperado; puede ser solo otra redacción)")
         if c["estado"] == "fail":
             recs.append(f"Revisa el caso «{c['id']}»: " + "; ".join(c.get("fallas", [])[:2]))
     if comp.get("status") == "fail":

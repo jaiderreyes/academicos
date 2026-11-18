@@ -193,3 +193,19 @@ casos:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HeuristicoTest(unittest.TestCase):
+    def test_caso_heuristico_que_no_coincide_pide_revision_y_deja_pendiente(self):
+        from academicos.review.cases import run_cases, requisitos_desde_casos
+        from types import SimpleNamespace as NS
+        class R:
+            def compile(self, *a): return NS(status="ok")
+            def execute(self, *a, **k): return NS(status="ok", exit_code=0, stdout="otra redaccion", stderr="", to_dict=lambda: {})
+        caso = {"id": "h", "descripcion": "d", "requisito": "req", "args": [], "stdin": None, "timeout": 5,
+                "esperado": {"salida_regex": ["equivalen"]}, "heuristico": True}
+        res = run_cases(R(), NS(main_classes=["app.Main"]), ".", ".", [caso])["casos"]
+        self.assertEqual(res[0]["estado"], "revisar")
+        self.assertIsNone(requisitos_desde_casos(res)["req"])
+        caso["heuristico"] = False
+        self.assertEqual(run_cases(R(), NS(main_classes=["app.Main"]), ".", ".", [caso])["casos"][0]["estado"], "fail")
