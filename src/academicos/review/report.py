@@ -84,7 +84,7 @@ def export_student(r, outdir):
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     base = _slug(r["estudiante"])
-    (outdir / f"{base}.json").write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
+    (outdir / f"{base}.json").write_text(json.dumps({k: v for k, v in r.items() if not k.startswith("_")}, ensure_ascii=False, indent=2), encoding="utf-8")
     (outdir / f"{base}.md").write_text(markdown(r), encoding="utf-8")
     return {"json": str(outdir / f"{base}.json"), "md": str(outdir / f"{base}.md")}
 

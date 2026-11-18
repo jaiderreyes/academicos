@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .cases import CaseError, load_cases
 from .evaluate import evaluar_entrega
+from .similarity import UMBRAL, comparar, markdown as sim_markdown
 from .levels import ids_desconocidos
 from .report import export_course, export_student
 from .rubric import RubricError, load_rubric
@@ -37,6 +38,7 @@ def add_parser(sub):
 
     course = rsub.add_parser("course", help="Evaluar todas las carpetas de un curso")
     comunes(course)
+    course.add_argument("--umbral", type=float, default=UMBRAL, help="Umbral de similitud (0.80 por defecto)")
     course.add_argument("--curso", type=Path, required=True, help="Carpeta con una subcarpeta por estudiante")
     return rev
 
@@ -119,4 +121,7 @@ def run_review(args):
         resultados.append(r)
         print(json.dumps(_resumen(r), ensure_ascii=False))
     print(f"Consolidado: {export_course(resultados, args.salida)}")
+    sim = comparar({r["estudiante"]: r["_huella"] for r in resultados if "_huella" in r}, args.umbral)
+    (Path(args.salida) / "similitud.md").write_text(sim_markdown(sim), encoding="utf-8")
+    print(f"Similitud: {len(sim['pares'])} par(es) sobre {args.umbral:.2f} → {Path(args.salida) / 'similitud.md'}")
     return 1 if any(r["errores"] for r in resultados) else 0

@@ -7,7 +7,7 @@
 - [x] J-05 Implementar compilación y ejecución en Docker con límites y registro.
 - [x] J-05b Leer criterios manuales y casos de prueba desde carpetas aparte.
 - [x] J-06 Implementar verificaciones estáticas y casos de prueba externos.
-- [ ] J-07 Implementar similitud de código entre entregas.
+- [x] J-07 Similitud de código entre entregas (review/similarity.py; `review course` escribe similitud.md; umbral 0.80 con `--umbral`).
 - [x] J-08 Generar reportes por estudiante y consolidado.
 - [x] J-09 Integrar comandos CLI y catálogo.
 - [ ] J-10 Pruebas automatizadas con proyectos Java sintéticos.

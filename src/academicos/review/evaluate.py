@@ -11,6 +11,7 @@ from pathlib import Path
 from .cases import load_cases, requisitos_desde_casos, run_cases, CaseError
 from .checks import requisitos_desde_checks, run_checks
 from .levels import evaluar_criterio, ids_desconocidos
+from .similarity import huella_de
 from .javaproject import (ProjectError, detect_project, fingerprint, find_candidates,
                           prepare_copy)
 from .manual import load_manual
@@ -98,6 +99,7 @@ def evaluar_entrega(rubrica, rubrica_dir, estudiante_dir, runner, proyecto=None,
                                    "clases_principales": info.main_classes,
                                    "archivos_java": len(info.files), "archivos_prueba": info.test_files,
                                    "avisos": info.warnings}
+        resultado["_huella"] = huella_de(info.root, info.files, excluir=set(info.test_files))
         # 1) verificaciones estáticas
         checks = run_checks(rubrica.verificaciones, info.root, info.files)
         resultado["verificaciones"] = checks
