@@ -77,23 +77,35 @@ def evaluar_entrega(rubrica, rubrica_dir, estudiante_dir, runner, proyecto=None,
     resultado = {"estudiante": estudiante_dir.name, "fecha": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                  "rubrica": rubrica.nombre, "avisos": list(AVISOS_ALCANCE), "errores": []}
     origen = Path(proyecto) if proyecto else None
+    lista = [origen] if origen else []
     if origen is None:
         cands = find_candidates(estudiante_dir) if estudiante_dir.is_dir() else [estudiante_dir]
         if not cands:
             resultado["errores"].append("no se encontró proyecto Java (carpeta, .java o .zip)")
             return resultado
         origen = cands[0]
+        lista = list(cands)
         resultado["alternativas"] = [c.name for c in cands[1:]]
     resultado["proyecto"] = origen.name
-    antes = fingerprint(origen)
+    antes = {c: fingerprint(c) for c in lista}
     with tempfile.TemporaryDirectory(prefix="academicos-eval-") as tmp:
         tmp = Path(tmp)
-        try:
-            info = detect_project(origen, extract_to=tmp / "zip")
-            work = prepare_copy(info, tmp / "copia")
-        except ProjectError as exc:
-            resultado["errores"].append(str(exc))
+        info, work, descartados = None, None, []
+        for n, cand in enumerate(lista):
+            try:
+                info = detect_project(cand, extract_to=tmp / f"zip{n}")
+                work = prepare_copy(info, tmp / f"copia{n}")
+                origen = cand
+                break
+            except ProjectError as exc:
+                descartados.append(f"{cand.name}: {exc}")
+        if info is None:
+            resultado["errores"].extend(descartados)
             return resultado
+        resultado["proyecto"] = origen.name
+        if descartados:
+            resultado["avisos"].append("Se descartó (sin código Java utilizable): " + "; ".join(descartados) +
+                                       f". Se evaluó: {origen.name}")
         work.chmod(0o755)
         resultado["estructura"] = {"tipo": info.kind, "raices": info.source_roots,
                                    "clases_principales": info.main_classes,
@@ -124,7 +136,8 @@ def evaluar_entrega(rubrica, rubrica_dir, estudiante_dir, runner, proyecto=None,
         comp = ejec["compilacion"]
         resultado["compilacion"] = comp.to_dict()
         resultado["casos"] = ejec["casos"]
-    resultado["integridad"] = {"archivos": len(antes), "intacto": fingerprint(origen) == antes}
+    resultado["integridad"] = {"archivos": sum(len(v) for v in antes.values()),
+                               "intacto": all(fingerprint(c) == antes[c] for c in lista)}
 
     # 3) requisitos
     estado_compila = {"ok": True, "fail": False}.get(comp.status)

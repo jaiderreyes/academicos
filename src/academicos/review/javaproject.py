@@ -160,10 +160,35 @@ def detect_project(origin, extract_to=None):
     else:
         raise ProjectError(f"formato no soportado: {origin.name}")
     files, mains, tests, source_roots = _analyze(root, warnings)
+    if not files and origin.is_file() and origin.suffix.lower() == ".zip":
+        # zip dentro de zip: solo dentro del destino de trabajo; el original nunca se toca
+        _expandir_zips_anidados(root)
+        files, mains, tests, source_roots = _analyze(root, warnings)
+        if files:
+            warnings.append("el código estaba dentro de un .zip anidado")
     if not files:
         raise ProjectError(f"no hay archivos .java en {origin.name}")
     return ProjectInfo(_kind_of(root), str(root), source_roots, files, mains, tests,
                        warnings, str(origin))
+
+
+def _expandir_zips_anidados(root, max_nivel=3):
+    """Si no hay .java pero hay .zip dentro (p. ej. un zip dentro de otro), los extrae junto a ellos.
+
+    Usa safe_extract (protección contra rutas fuera del destino). Devuelve la raíz donde buscar."""
+    root = Path(root)
+    for nivel in range(max_nivel):
+        if any(True for _ in _java_files(root)):
+            return root
+        zips = [z for z in sorted(root.rglob("*.zip")) if not z.is_symlink() and "__MACOSX" not in z.parts]
+        if not zips:
+            return root
+        for i, z in enumerate(zips):
+            try:
+                safe_extract(z, z.parent / f"_anidado_{nivel}_{i}")
+            except (ProjectError, OSError):
+                continue
+    return root
 
 
 def _descend_single_dir(root):

@@ -155,3 +155,23 @@ class JavaProjectTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ZipAnidadoTest(unittest.TestCase):
+    def test_zip_dentro_de_zip_se_lee_sin_tocar_el_original(self):
+        import io, tempfile, zipfile
+        from pathlib import Path
+        from academicos.review.javaproject import detect_project, fingerprint
+        d = Path(tempfile.mkdtemp())
+        interno = io.BytesIO()
+        with zipfile.ZipFile(interno, "w") as z:
+            z.writestr("proy/src/app/Main.java", "package app; public class Main { public static void main(String[] a){} }")
+        externo = d / "entrega.zip"
+        with zipfile.ZipFile(externo, "w") as z:
+            z.writestr("informe.pdf", "x")
+            z.writestr("proyecto.zip", interno.getvalue())
+        antes = fingerprint(externo)
+        info = detect_project(externo, extract_to=d / "work")
+        self.assertEqual(info.main_classes, ["app.Main"])
+        self.assertTrue(any("anidado" in w for w in info.warnings))
+        self.assertEqual(fingerprint(externo), antes)
