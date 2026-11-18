@@ -72,7 +72,7 @@ class MejoraTest(unittest.TestCase):
         self.assertTrue(any("Respeta prioridad" in f for f in falta))
         self.assertTrue(any("Confirmación docente" in f for f in falta))
         self.assertTrue(recs[0].startswith("Compila con el comando"))
-        self.assertTrue(any("«c1»" in x for x in recs))
+        self.assertTrue(any("Fallan 1 de 1 casos" in x for x in recs))
 
     def test_sin_pendientes(self):
         from academicos.review.report import por_mejorar

@@ -109,11 +109,11 @@ verificaciones:
   - {id: tipo_lista, tipo: requiere_tipo, nombres: ['\w*lista\w*'], requisito: estructuras_basicas, descripcion: Declara una lista (clase propia)}
   - {id: tipo_pila, tipo: requiere_tipo, nombres: ['\w*pila\w*'], requisito: estructuras_basicas, descripcion: Declara una pila (clase propia)}
   - {id: tipo_cola, tipo: requiere_tipo, nombres: ['\w*cola\w*'], requisito: estructuras_basicas, descripcion: Declara una cola (clase propia)}
-  - {id: variante_biblioteca, tipo: requiere_tipo, nombres: ['\w*biblioteca\w*'], descripcion: Declara la variante con biblioteca}
+  - {id: variante_biblioteca, tipo: requiere_tipo, nombres: ['\w*(biblioteca|java|javautil)\w*'], descripcion: Declara la variante con biblioteca (clase con «biblioteca» o «java» en el nombre)}
   - id: biblioteca_usa_java_util
     tipo: requiere_patron
     patron: 'java\.util\.(?:(?:LinkedList|ArrayList|ArrayDeque|Stack|Queue|Deque|PriorityQueue|List)\b|\*)'
-    archivos: '(?i)biblioteca'
+    archivos: '(?i)(biblioteca|java)'
     descripcion: La variante con biblioteca usa colecciones de java.util
   - {id: tiene_pruebas, tipo: requiere_tipo, nombres: ['\w*(prueba|test)\w*'], descripcion: Incluye pruebas del estudiante}
   - id: manual_sin_java_util

@@ -44,11 +44,14 @@ def por_mejorar(r):
             anotar(cid, f"no cumplido; frena {n['id']} → {sig}")
         for cid in sorted(set(n.get("sin_verificar", [])) | set(n.get("no_verificados_siguiente", []))):
             anotar(cid, f"sin verificar; necesario para {n['id']} → {sig}")
+    fallidos = [c for c in r.get("casos", []) if c["estado"] == "fail"]
+    if fallidos:
+        nombres = [c.get("descripcion", c["id"]).split(":")[0] for c in fallidos]
+        recs.append(f"Fallan {len(fallidos)} de {len(r.get('casos', []))} casos de prueba del enunciado; "
+                    "revisa con la entrada indicada: " + "; ".join(nombres[:4]) + ("…" if len(nombres) > 4 else ""))
     for c in r.get("casos", []):
         if c["estado"] == "revisar":
             falta.append(f"Revisión docente del caso heurístico «{c['id']}» (la salida no coincidió con el texto esperado; puede ser solo otra redacción)")
-        if c["estado"] == "fail":
-            recs.append(f"Revisa el caso «{c['id']}»: " + "; ".join(c.get("fallas", [])[:2]))
     if comp.get("status") == "fail":
         recs.insert(0, _PISTAS["compila"])
     for x in r.get("confirmaciones_docentes", []):
@@ -211,7 +214,7 @@ def export_general(resultados, sim, outdir):
     L = ["# Reporte general por estudiante", "",
          f"**{len(rs)} entregas** · {len(sanc)} con ajuste docente por similitud · "
          f"{sum(1 for r in rs if not r.get('calificacion'))} sin código evaluable", "",
-         "> Nota final = parcial automática (sin informe ni «excelente»), salvo ajuste docente (⚠ = 0.0 por similitud).", "",
+         "> Nota final = 80 % funcional (criterios de la rúbrica, ejecutados contra los casos del enunciado) + 20 % entregables (sección 9). Sin defensa. ⚠ = 0.0 por similitud (decisión docente).", "",
          "## Resumen", "",
          "| Estudiante | Nota final | Modelado | Estructuras | Validación | Observación |",
          "|---|---|---|---|---|---|"]
@@ -270,7 +273,8 @@ def export_general(resultados, sim, outdir):
 def _corto(nombre):
     n = re.sub(r"(_assignsubmission_file)$", "", nombre)
     n = re.sub(r"_?\d{4,}_?$", "", n)
-    return re.sub(r"_\d?$", "", n).replace("_", " ").strip().title()
+    n = re.sub(r"_\d?$", "", n).replace("_", " ").strip()
+    return " ".join(w.capitalize() for w in n.split())
 
 
 _CHIP = {"deficiente": "#fde2e0:#9b1c1c", "regular": "#fff1cc:#8a5a00", "bueno": "#dff3e4:#1b6b34",
