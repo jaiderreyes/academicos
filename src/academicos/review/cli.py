@@ -1,9 +1,11 @@
 """Subcomando `academicos review ...` (spec 006, J-09)."""
 import json
+from contextlib import closing
 from pathlib import Path
 
 from .cases import CaseError, load_cases
 from .evaluate import evaluar_entrega
+from .store import ReviewStore, historial
 from .similarity import UMBRAL, comparar, markdown as sim_markdown
 from .levels import ids_desconocidos
 from .report import export_course, export_student
@@ -21,6 +23,10 @@ def add_parser(sub):
     dck = rsub.add_parser("docker-check", help="Validar el aislamiento en Docker de este equipo")
     dck.add_argument("--image", default=DEFAULT_IMAGE)
     dck.add_argument("--pull", action="store_true", help="Descargar la imagen si falta")
+
+    his = rsub.add_parser("history", help="Ver el historial de notas y niveles guardado")
+    his.add_argument("--salida", type=Path, required=True, help="Carpeta de reportes con revisiones.sqlite3")
+    his.add_argument("--estudiante", default=None)
 
     def comunes(p):
         p.add_argument("--rubrica", type=Path, required=True)
@@ -99,6 +105,9 @@ def run_review(args):
         res = selfcheck(DockerRunner(image=args.image), pull=args.pull)
         print(json.dumps(res, ensure_ascii=False, indent=2))
         return 0 if res.get("ok") else 1
+    if args.review_command == "history":
+        print(json.dumps(historial(args.salida, args.estudiante), ensure_ascii=False, indent=2))
+        return 0
     rubrica = load_rubric(args.rubrica)
     runner = _runner(args)
     casos = _casos_dir(args, rubrica)
@@ -108,20 +117,27 @@ def run_review(args):
         r = evaluar_entrega(rubrica, args.rubrica.parent, args.estudiante, runner, args.proyecto,
                             _manual(args, args.estudiante.name), casos)
         rutas = export_student(r, args.salida)
+        with closing(ReviewStore(args.salida)) as store:
+            store.add_student(store.start_run(args.rubrica, rubrica.nombre), r)
         print(json.dumps({**_resumen(r), "reportes": rutas}, ensure_ascii=False, indent=2))
         return 1 if r["errores"] else 0
     carpetas = sorted(p for p in args.curso.iterdir() if p.is_dir() and not p.name.startswith("."))
     if not carpetas:
         raise RubricError(f"no hay subcarpetas de estudiantes en {args.curso}")
     resultados = []
+    store = ReviewStore(args.salida)
+    run_id = store.start_run(args.rubrica, rubrica.nombre, args.curso, args.umbral)
     for carpeta in carpetas:
         r = evaluar_entrega(rubrica, args.rubrica.parent, carpeta, runner, None,
                             _manual(args, carpeta.name), casos)
         export_student(r, args.salida)
+        store.add_student(run_id, r)
         resultados.append(r)
         print(json.dumps(_resumen(r), ensure_ascii=False))
     print(f"Consolidado: {export_course(resultados, args.salida)}")
     sim = comparar({r["estudiante"]: r["_huella"] for r in resultados if "_huella" in r}, args.umbral)
+    store.add_similarity(run_id, sim)
+    store.close()
     (Path(args.salida) / "similitud.md").write_text(sim_markdown(sim), encoding="utf-8")
     print(f"Similitud: {len(sim['pares'])} par(es) sobre {args.umbral:.2f} → {Path(args.salida) / 'similitud.md'}")
     return 1 if any(r["errores"] for r in resultados) else 0

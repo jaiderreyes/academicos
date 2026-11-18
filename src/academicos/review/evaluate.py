@@ -163,6 +163,7 @@ def evaluar_entrega(rubrica, rubrica_dir, estudiante_dir, runner, proyecto=None,
         puntajes[cid] = a["nota"]
         a["sugerencia_automatica"] = previa
     resultado["niveles"] = niveles
+    resultado["descripciones"] = {r.id: r.descripcion for r in rubrica.requisitos}
     resultado["confirmaciones_docentes"] = [x for x in confirmaciones if x["criterio"] not in ajustes]
     resultado["requisitos"] = requisitos
     resultado["calificacion"] = score(rubrica, puntajes, requisitos)

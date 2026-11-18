@@ -14,6 +14,58 @@ def _estado(v):
     return {True: "cumple", False: "NO cumple", None: "sin verificar"}[v]
 
 
+_PISTAS = {
+    "compila": "Compila con el comando del enunciado (`javac -encoding UTF-8 -d out $(find src -name \"*.java\")`) "
+               "antes de entregar: un solo .java con varias clases públicas o texto que no es código no compila.",
+    "tiene_pruebas": "Agrega pruebas en una carpeta `test/` (o `tests/`) que cubran los casos mínimos del enunciado.",
+}
+
+
+def por_mejorar(r):
+    """Qué falta y qué recomendar, derivado solo de los hechos del resultado (sin inventar)."""
+    desc = dict(r.get("descripciones", {}))
+    desc.update({v["id"]: v["descripcion"] for v in r.get("verificaciones", [])})
+    desc.update({c["id"]: c["descripcion"] for c in r.get("casos", [])})
+    desc["compila"] = "El proyecto compila"
+    falta, recs, vistos = [], [], set()
+
+    def anotar(cid, motivo):
+        if cid in vistos:
+            return
+        vistos.add(cid)
+        falta.append(f"{desc.get(cid, cid)} ({motivo})")
+        if cid in _PISTAS:
+            recs.append(_PISTAS[cid])
+
+    comp = r.get("compilacion", {})
+    for n in r.get("niveles", []):
+        sig = n.get("siguiente_nivel")
+        for cid in n.get("bloqueado_por", []):
+            anotar(cid, f"no cumplido; frena {n['id']} → {sig}")
+        for cid in sorted(set(n.get("sin_verificar", [])) | set(n.get("no_verificados_siguiente", []))):
+            anotar(cid, f"sin verificar; necesario para {n['id']} → {sig}")
+    for c in r.get("casos", []):
+        if c["estado"] == "fail":
+            recs.append(f"Revisa el caso «{c['id']}»: " + "; ".join(c.get("fallas", [])[:2]))
+    if comp.get("status") == "fail":
+        recs.insert(0, _PISTAS["compila"])
+    for x in r.get("confirmaciones_docentes", []):
+        falta.append(f"Confirmación docente de {x['criterio']} → {x['nivel']} (solo la persona docente)")
+    for a in r.get("avisos", [])[3:]:
+        if "pendientes" in a:
+            falta.append("Criterios manuales sin puntuar (p. ej. informe y defensa)")
+        elif "difiere" in a:
+            recs.append("Usa exactamente el nombre de clase principal del enunciado (respeta mayúsculas): " + a)
+    return falta, list(dict.fromkeys(recs))
+
+
+def _seccion_mejora(r):
+    falta, recs = por_mejorar(r)
+    L = ["", "## Qué falta", ""] + ([f"- {x}" for x in falta] or ["- Nada pendiente de verificar."])
+    L += ["", "## Recomendaciones", ""] + ([f"- {x}" for x in recs] or ["- Sin recomendaciones automáticas."])
+    return L
+
+
 def markdown(r):
     L = [f"# Revisión · {r['estudiante']}", "",
          f"Rúbrica: {r['rubrica']} · Proyecto: {r.get('proyecto', '—')} · {r['fecha']}", ""]
@@ -73,6 +125,7 @@ def markdown(r):
         L += ["", "## Criterios manuales", "", f"Archivo: {r['manual']['archivo']}"]
         if r["manual"]["observaciones"]:
             L.append(f"Observaciones: {r['manual']['observaciones']}")
+    L += _seccion_mejora(r)
     i = r["integridad"]
     L += ["", "## Integridad y alcance", "",
           f"- Original sin cambios: {'sí' if i['intacto'] else 'NO'} ({i['archivos']} archivos comparados por SHA-256)",
