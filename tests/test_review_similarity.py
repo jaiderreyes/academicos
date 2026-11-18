@@ -91,3 +91,16 @@ class ArchivosIdenticosTest(unittest.TestCase):
         p = r["pares"][0]
         self.assertEqual(p["archivos_identicos"], [("A.java", "A.java")])
         self.assertIn("Archivos idénticos por pareja", markdown(r))
+
+
+class SancionTest(unittest.TestCase):
+    def test_aplica_cero_conserva_nota_y_respeta_excepciones(self):
+        from academicos.review.similarity import aplicar_sancion
+        res = [{"estudiante": n} for n in ("Ana", "Luis", "Eva")]
+        sim = {"pares": [{"a": "Ana", "b": "Luis", "puntaje": 1.0}, {"a": "Ana", "b": "Eva", "puntaje": 0.85}]}
+        out = aplicar_sancion(res, sim, 1.0)
+        self.assertEqual(sorted(out), ["Ana", "Luis"])
+        self.assertEqual(res[0]["sancion"]["nota"], 0.0)
+        self.assertNotIn("sancion", res[2])
+        res2 = [{"estudiante": n} for n in ("Ana", "Luis")]
+        self.assertEqual(aplicar_sancion(res2, sim, 1.0, excepto=["luis"]), ["Ana"])

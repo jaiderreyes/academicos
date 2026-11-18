@@ -147,3 +147,27 @@ def markdown(res):
     if res["insuficientes"]:
         L += ["", "Sin código suficiente para comparar: " + ", ".join(res["insuficientes"])]
     return "\n".join(L) + "\n"
+
+
+def aplicar_sancion(resultados, sim, desde, excepto=()):
+    """Decisión docente: nota 0.0 a quienes aparezcan en un par con puntaje >= `desde`.
+
+    No toca la nota automática: añade r["sancion"] con motivo y pareja, para revertirlo con
+    solo quitar la opción. `excepto` lista estudiantes (texto contenido en el nombre) a salvar.
+    Devuelve los nombres afectados."""
+    por_nombre = {r["estudiante"]: r for r in resultados}
+    afectados = []
+    for p in sim["pares"]:
+        if p["puntaje"] < desde:
+            continue
+        for yo, otro in ((p["a"], p["b"]), (p["b"], p["a"])):
+            r = por_nombre.get(yo)
+            if r is None or any(e.lower() in yo.lower() for e in excepto):
+                continue
+            r.setdefault("sancion", {"nota": 0.0, "parejas": [],
+                                     "motivo": f"Decisión docente: similitud de código >= {desde:.2f} en parcial individual"})
+            if otro not in r["sancion"]["parejas"]:
+                r["sancion"]["parejas"].append(otro)
+            if yo not in afectados:
+                afectados.append(yo)
+    return afectados

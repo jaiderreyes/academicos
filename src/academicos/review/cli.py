@@ -6,7 +6,7 @@ from pathlib import Path
 from .cases import CaseError, load_cases
 from .evaluate import evaluar_entrega
 from .store import ReviewStore, historial
-from .similarity import UMBRAL, cargar_base, comparar, markdown as sim_markdown
+from .similarity import UMBRAL, aplicar_sancion, cargar_base, comparar, markdown as sim_markdown
 from .levels import ids_desconocidos
 from .report import export_course, export_student
 from .rubric import RubricError, load_rubric
@@ -47,6 +47,11 @@ def add_parser(sub):
     course = rsub.add_parser("course", help="Evaluar todas las carpetas de un curso")
     comunes(course)
     course.add_argument("--umbral", type=float, default=UMBRAL, help="Umbral de similitud (0.80 por defecto)")
+    course.add_argument("--sancion-similitud", type=float, default=None, metavar="PUNTAJE",
+                        help="Decisión docente: nota 0.0 a quienes tengan una pareja con similitud >= PUNTAJE (p. ej. 1.0). "
+                             "La nota automática se conserva y queda el motivo en el reporte")
+    course.add_argument("--excepto", action="append", default=[], metavar="TEXTO",
+                        help="Estudiante (texto del nombre) que no recibe la sanción; repetible")
     course.add_argument("--curso", type=Path, required=True, help="Carpeta con una subcarpeta por estudiante")
     return rev
 
@@ -133,12 +138,16 @@ def run_review(args):
     for carpeta in carpetas:
         r = evaluar_entrega(rubrica, args.rubrica.parent, carpeta, runner, None,
                             _manual(args, carpeta.name), casos, base)
-        export_student(r, args.salida)
-        store.add_student(run_id, r)
         resultados.append(r)
         print(json.dumps(_resumen(r), ensure_ascii=False))
-    print(f"Consolidado: {export_course(resultados, args.salida)}")
     sim = comparar({r["estudiante"]: r["_huella"] for r in resultados if "_huella" in r}, args.umbral)
+    if args.sancion_similitud is not None:
+        afectados = aplicar_sancion(resultados, sim, args.sancion_similitud, args.excepto)
+        print(f"Sanción docente (nota 0.0) a {len(afectados)} estudiante(s) con similitud >= {args.sancion_similitud:.2f}")
+    for r in resultados:
+        export_student(r, args.salida)
+        store.add_student(run_id, r)
+    print(f"Consolidado: {export_course(resultados, args.salida)}")
     store.add_similarity(run_id, sim)
     store.close()
     (Path(args.salida) / "similitud.md").write_text(sim_markdown(sim), encoding="utf-8")

@@ -127,6 +127,13 @@ def markdown(r):
         L += ["", "## Criterios manuales", "", f"Archivo: {r['manual']['archivo']}"]
         if r["manual"]["observaciones"]:
             L.append(f"Observaciones: {r['manual']['observaciones']}")
+    if r.get("sancion"):
+        sc = r["sancion"]
+        L += ["", "## Ajuste docente por similitud", "",
+              f"**Nota final: {sc['nota']:.1f}** (la nota automática de arriba se conserva como referencia).",
+              f"{sc['motivo']}. Coincide con: " + "; ".join(sc["parejas"]) + ".",
+              "Es una decisión de la persona docente, no una conclusión de la herramienta: la similitud es un indicio. "
+              "Quitar `--sancion-similitud` al volver a correr revierte el ajuste."]
     L += _seccion_mejora(r)
     i = r["integridad"]
     L += ["", "## Integridad y alcance", "",
@@ -149,17 +156,20 @@ def export_course(resultados, outdir):
     outdir.mkdir(parents=True, exist_ok=True)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["estudiante", "proyecto", "nota", "maximo_posible", "completa", "tope_aplicado",
-                "requisitos_incumplidos", "requisitos_sin_verificar", "compilacion", "original_intacto", "errores"])
+    w.writerow(["estudiante", "proyecto", "nota_final", "nota", "maximo_posible", "completa", "tope_aplicado",
+                "requisitos_incumplidos", "requisitos_sin_verificar", "compilacion", "original_intacto", "errores", "ajuste_docente"])
     for r in resultados:
         k = r.get("calificacion")
+        sanc = r.get("sancion")
         w.writerow([r["estudiante"], r.get("proyecto", ""),
+                    sanc["nota"] if sanc else ("" if not k else k["nota_sugerida"]),
                     "" if not k else k["nota_sugerida"], "" if not k else k["maximo_posible"],
                     "" if not k else k["completo"], "" if not k else k["tope_aplicado"],
                     "" if not k else ";".join(k["requisitos_incumplidos"]),
                     "" if not k else ";".join(k["requisitos_sin_verificar"]),
                     r.get("compilacion", {}).get("status", ""),
-                    r.get("integridad", {}).get("intacto", ""), " | ".join(r["errores"])])
+                    r.get("integridad", {}).get("intacto", ""), " | ".join(r["errores"]),
+                    (r["sancion"]["motivo"] + " (con " + "; ".join(r["sancion"]["parejas"]) + ")") if r.get("sancion") else ""])
     ruta = outdir / "consolidado.csv"
     ruta.write_text(buf.getvalue(), encoding="utf-8")
     return str(ruta)
