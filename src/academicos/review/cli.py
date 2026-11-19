@@ -11,6 +11,7 @@ from .levels import ids_desconocidos
 from .report import export_course, export_general, export_general_html, export_student
 from .rubric import RubricError, load_rubric
 from .runner import DEFAULT_IMAGE, DockerRunner, selfcheck
+from .stack.cli import add_stack_parser, run_stack
 
 
 def add_parser(sub):
@@ -53,6 +54,7 @@ def add_parser(sub):
     course.add_argument("--excepto", action="append", default=[], metavar="TEXTO",
                         help="Estudiante (texto del nombre) que no recibe la sanción; repetible")
     course.add_argument("--curso", type=Path, required=True, help="Carpeta con una subcarpeta por estudiante")
+    add_stack_parser(rsub)
     return rev
 
 
@@ -89,6 +91,8 @@ def _resumen(r):
 
 
 def run_review(args):
+    if args.review_command == "stack":
+        return run_stack(args)
     if args.review_command == "rubric-check":
         r = load_rubric(args.rubrica)
         ids_casos, nota = [], None

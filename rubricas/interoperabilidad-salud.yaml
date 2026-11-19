@@ -1,0 +1,191 @@
+# Rúbrica del parcial "Plataforma distribuida de interoperabilidad en salud" · Sistemas Distribuidos (UAJS)
+# Derivada del enunciado (secciones 4, 10, 11 y 12). Los 13 criterios suman 5,0.
+# Cada criterio tiene `max` (nota máxima = nivel «Excelente»). La nota sugerida es max × fracción de
+# señales cumplidas (peso). Por debajo de la mitad el criterio se marca «no cumplido» (sección 11).
+# Decisión docente: si la evidencia muestra el elemento, cuenta como excelente (sin defensa de por medio);
+# la sustentación individual y lo que solo se ve en vivo quedan como ajuste docente.
+#
+# Tipos de señal:
+#   archivo        nombres de archivo que casan `patron` (opcional `extensiones`), mínimo `minimo` (1)
+#   contenido      texto de código/config que casa `patron` (`en`: codigo | docs | todo), mínimo `minimo` (1)
+#   compose        servicios de docker-compose: `campo` = servicios | bases | healthchecks | citus | build
+#   informe        `campo` = existe | resumen_palabras | referencias | secciones, o `patron` sobre su texto
+#   ejecucion      `prueba` = levanta | health | metrics (solo con Docker; sin Docker queda sin verificar)
+#   git            `campo` = etiqueta_v10 (refs de la carpeta .git, sin ejecutar git)
+#   manual         solo la persona docente la confirma
+nombre: Plataforma distribuida de interoperabilidad en salud
+escala: {min: 0.0, max: 5.0}
+aprobacion: 3.0
+bonus_max: 0.25
+
+ejecucion:
+  espera_segundos: 240     # tiempo para que `docker compose up` deje todo sano
+  imagen_diagrama: [png, jpg, jpeg, svg, puml, plantuml, dot, drawio, mmd, pdf]
+
+criterios:
+  - id: uml
+    nombre: Arquitectura y UML coherentes
+    fase: 1
+    max: 0.50
+    senales:
+      - {id: uml_casos_uso, descripcion: "Diagrama de casos de uso", tipo: archivo, patron: 'caso.?s?.?de.?uso|use.?case', extensiones: diagrama, o: [{tipo: informe, patron: 'diagrama de casos de uso|casos de uso'}]}
+      - {id: uml_secuencia, descripcion: "Diagrama de secuencia", tipo: archivo, patron: 'secuencia|sequence', extensiones: diagrama, o: [{tipo: informe, patron: 'diagrama de secuencia'}]}
+      - {id: uml_clases, descripcion: "Diagrama de clases", tipo: archivo, patron: '(^|[^a-z])(clases?|class(es)?)([^a-z]|$)', extensiones: diagrama, o: [{tipo: informe, patron: 'diagrama de clases'}]}
+      - {id: uml_estados, descripcion: "Diagrama de estados del mensaje", tipo: archivo, patron: '(^|[^a-z])(estados?|states?)([^a-z]|$)', extensiones: diagrama, o: [{tipo: informe, patron: 'diagrama de estados'}]}
+      - {id: arquitectura, descripcion: "Diagrama de arquitectura", tipo: archivo, patron: 'arquitectura|architecture', extensiones: diagrama, o: [{tipo: informe, patron: 'diagrama de arquitectura|arquitectura (de referencia|propuesta|final)'}]}
+      - {id: mapeo_campos, descripcion: "Tabla de mapeo de campos a FHIR", tipo: archivo, patron: 'mapeo|mapping|conceptmap', o: [{tipo: informe, patron: 'tabla de mapeo|mapeo de campos|mapeo origen'}]}
+
+  - id: informe_base
+    nombre: Informe base y marco teórico
+    fase: 1
+    max: 0.25
+    senales:
+      - {id: informe_existe, descripcion: "Entrega un informe (pdf, docx o md)", tipo: informe, campo: existe}
+      - {id: resumen_150_250, descripcion: "Resumen de 150 a 250 palabras", tipo: informe, campo: resumen_palabras, minimo: 150, maximo: 250}
+      - {id: objetivos, descripcion: "Objetivo general y específicos", tipo: informe, patron: 'objetivo general', minimo: 1}
+      - {id: objetivos_especificos, descripcion: "Objetivos específicos", tipo: informe, patron: 'objetivos? espec[ií]ficos', minimo: 1}
+      - {id: marco_cap_acid, descripcion: "Marco teórico con CAP y ACID", tipo: informe, patron: '\bCAP\b.*\bACID\b|\bACID\b.*\bCAP\b', minimo: 1}
+      - {id: marco_conceptual, descripcion: "Marco conceptual (idempotencia, bundle, terminología)", tipo: informe, patron: 'idempoten', minimo: 1}
+
+  - id: fhir
+    nombre: Normalización a FHIR R4
+    fase: 2
+    max: 0.50
+    senales:
+      - {id: fhir_patient, descripcion: "Recurso Patient", tipo: contenido, patron: '["'']?resourceType["'']?\s*[:=]\s*["'']Patient|class\s+Patient|def\s+\w*patient', en: codigo}
+      - {id: fhir_encounter, descripcion: "Recurso Encounter", tipo: contenido, patron: 'Encounter', en: codigo}
+      - {id: fhir_observation, descripcion: "Recurso Observation", tipo: contenido, patron: 'Observation', en: codigo}
+      - {id: fhir_condition, descripcion: "Recurso Condition", tipo: contenido, patron: 'Condition', en: codigo}
+      - {id: fhir_bundle, descripcion: "Bundle", tipo: contenido, patron: 'Bundle', en: codigo}
+      - {id: cie10, descripcion: "Diagnóstico con CIE-10", tipo: contenido, patron: 'cie.?10|icd.?10|icd-10', en: codigo}
+      - {id: loinc, descripcion: "Laboratorio con LOINC", tipo: contenido, patron: 'loinc', en: codigo}
+      - {id: validador_fhir, descripcion: "Validación contra HAPI ($validate o servicio HAPI)", tipo: contenido, patron: '\$validate|hapiproject|hapi.?fhir', en: todo}
+      - {id: pruebas_normalizador, descripcion: "Pruebas del normalizador", tipo: archivo, patron: 'test.*normaliz|normaliz.*test|prueba.*normaliz', minimo: 1}
+
+  - id: datos
+    nombre: Datos distribuidos y ACID
+    fase: 2
+    max: 0.50
+    senales:
+      - {id: tres_sedes, descripcion: "Tres bases de sede (o Citus con 3 nodos)", tipo: compose, campo: bases, minimo: 3}
+      - {id: distribucion, descripcion: "Citus o fragmentación horizontal", tipo: contenido, patron: 'create_distributed_table|citusdata|fragment|shard|partition by (hash|list)|nodo[123]|sede[123]|sincelejo|cartagena|corozal', en: todo}
+      - {id: clave_paciente, descripcion: "Clave de distribución por paciente/documento", tipo: contenido, patron: 'distributed_table\s*\([^)]*(patient|document|documento)|(patient_id|documento|document)\s*%|mod\s*\(|hash\s*\(', en: todo}
+      - {id: consulta_unificada, descripcion: "Consulta unificada de un paciente en las 3 sedes", tipo: contenido, patron: 'unific|unified|union all|gather|asyncio\.gather|fan.?out|todas las sedes|all.?sedes|for .* in .*(sedes|nodos|nodes)', en: codigo}
+      - {id: acid, descripcion: "Transacción atómica (commit/rollback)", tipo: contenido, patron: 'rollback|begin;|\bcommit\b|atomic', en: todo}
+      - {id: explain, descripcion: "EXPLAIN de una consulta distribuida", tipo: contenido, patron: 'explain', en: todo}
+
+  - id: hsb
+    nombre: "HSB: ruteo, validación e idempotencia"
+    fase: 3
+    max: 1.00
+    senales:
+      - {id: hl7_adt, descripcion: "Recibe HL7 v2 ADT", tipo: contenido, patron: 'ADT\^A0|MSH\|', en: todo}
+      - {id: hl7_oru, descripcion: "Recibe HL7 v2 ORU", tipo: contenido, patron: 'ORU\^R01|OBX\|', en: todo}
+      - {id: csv_json, descripcion: "Recibe CSV o JSON legado", tipo: contenido, patron: 'csv\.|DictReader|read_csv|\.csv|json\.loads|text/csv', en: codigo}
+      - {id: validacion, descripcion: "Valida y rechaza con motivo", tipo: contenido, patron: 'rechaz|reject|invalid|status_code\s*=\s*4(00|22)|422', en: codigo}
+      - {id: enrutamiento, descripcion: "Enrutamiento por sede", tipo: contenido, patron: 'enrut|rout(e|er|ing)|sede.?[123]|por sede', en: codigo}
+      - {id: idempotencia, descripcion: "Idempotencia (id de mensaje o hash)", tipo: contenido, patron: 'idempot|message.?id|msg.?id|sha256|hashlib|dedup|duplicad', en: codigo}
+      - {id: reintentos, descripcion: "Reintentos con retroceso", tipo: contenido, patron: 'retry|reintent|backoff|retroceso|max.?attempts|attempts', en: codigo}
+      - {id: cola, descripcion: "Cola de mensajes", tipo: contenido, patron: 'queue|\bcola\b|celery|rabbit|kafka|redis|sqlite', en: codigo}
+      - {id: mensajes_muertos, descripcion: "Cola de mensajes muertos", tipo: contenido, patron: 'dead.?letter|dlq|muert|dead', en: codigo}
+      - {id: ejemplo_invalido, descripcion: "Mensaje de ejemplo inválido", tipo: archivo, patron: 'invalid|inv[aá]lid|error', extensiones: [hl7, csv, json, txt]}
+      - {id: ejemplo_duplicado, descripcion: "Mensaje de ejemplo duplicado", tipo: archivo, patron: 'duplic', extensiones: [hl7, csv, json, txt]}
+      - {id: pruebas_integracion, descripcion: "Pruebas de integración o de entrega", tipo: archivo, patron: 'test|prueba', extensiones: [py, js, ts, java, sh]}
+
+  - id: terminologias
+    nombre: Terminologías y métricas
+    fase: 3
+    max: 0.25
+    senales:
+      - {id: ref_terminologia, descripcion: "Tabla ref_terminology o ConceptMap", tipo: contenido, patron: 'ref_terminolog|conceptmap|concept_map', en: todo}
+      - {id: loinc_mapeo, descripcion: "Mapeo de pruebas a LOINC", tipo: contenido, patron: 'loinc', en: codigo}
+      - {id: latencia, descripcion: "Latencia medida", tipo: contenido, patron: 'latenc|latency|duration', en: todo}
+      - {id: fallidos, descripcion: "Porcentaje de fallidos", tipo: contenido, patron: 'fallid|failed|failure|fail_rate', en: todo}
+      - {id: benchmark, descripcion: "Script de medición", tipo: archivo, patron: 'benchmark|carga|load|stress|medicion'}
+
+  - id: seguridad
+    nombre: Seguridad y auditoría
+    fase: 4
+    max: 0.40
+    senales:
+      - {id: token, descripcion: "Autenticación con token (JWT, OAuth2, Keycloak)", tipo: contenido, patron: 'jwt|oauth|oidc|keycloak|bearer', en: codigo}
+      - {id: rol_admisionista, descripcion: "Rol admisionista", tipo: contenido, patron: 'admisionista', en: codigo}
+      - {id: rol_medico, descripcion: "Rol médico", tipo: contenido, patron: 'medico|médico', en: codigo}
+      - {id: rol_auditor, descripcion: "Rol auditor", tipo: contenido, patron: 'auditor', en: codigo}
+      - {id: acceso_denegado, descripcion: "Acceso denegado por rol (403)", tipo: contenido, patron: '\b403\b|forbidden|denegad|permiso', en: codigo}
+      - {id: auditoria_hash, descripcion: "Auditoría encadenada por hash", tipo: contenido, patron: 'prev.?hash|previous.?hash|hash.?anterior|hash_prev|encaden|chain', en: codigo}
+      - {id: verificador, descripcion: "Verificador de integridad", tipo: archivo, patron: 'verific|tamper|integrid|audit', extensiones: [py, js, ts, java, sh]}
+      - {id: auditevent, descripcion: "AuditEvent FHIR", tipo: contenido, patron: 'AuditEvent|evento_auditoria', en: todo}
+      - {id: env_ignorado, descripcion: "Secretos fuera del repositorio (.env ignorado)", tipo: contenido, patron: '^\s*\.env\s*$|\.env', en: docs}
+
+  - id: resiliencia
+    nombre: Resiliencia y observabilidad
+    fase: 4
+    max: 0.30
+    senales:
+      - {id: healthchecks, descripcion: "healthcheck en servicios del compose", tipo: compose, campo: healthchecks, minimo: 1}
+      - {id: endpoint_health, descripcion: "Endpoint /health", tipo: contenido, patron: '/health', en: codigo}
+      - {id: endpoint_metrics, descripcion: "Endpoint /metrics", tipo: contenido, patron: '/metrics', en: codigo}
+      - {id: degradacion, descripcion: "Degradación al caer una sede", tipo: contenido, patron: 'no.?disponible|unavailable|degrad|sede.*ca[ií]d|fallback|\bdown\b', en: codigo}
+      - {id: recuperacion, descripcion: "Entrega de pendientes al volver", tipo: contenido, patron: 'pendiente|pending|requeue|reencol', en: codigo}
+      - {id: ejec_health, descripcion: "Los servicios responden /health (ejecución)", tipo: ejecucion, prueba: health}
+      - {id: ejec_metrics, descripcion: "Los servicios responden /metrics (ejecución)", tipo: ejecucion, prueba: metrics}
+
+  - id: viabilidad
+    nombre: Viabilidad e interfaces
+    fase: 4
+    max: 0.30
+    senales:
+      - {id: viab_seccion, descripcion: "Sección de viabilidad técnica", tipo: informe, patron: 'viabilidad t[eé]cnica', minimo: 1}
+      - {id: escalabilidad, descripcion: "Escalabilidad justificada", tipo: informe, patron: 'escalab', minimo: 1}
+      - {id: ley_1581, descripcion: "Cumplimiento (Ley 1581 de 2012)", tipo: informe, patron: '1581', minimo: 1}
+      - {id: tls, descripcion: "Cifrado en tránsito", tipo: informe, patron: 'tls|ssl|cifrad|encrypt', minimo: 1}
+      - {id: capturas, descripcion: "Capturas reales (4 o más)", tipo: archivo, patron: 'captura|screenshot|pantalla|vista|tablero|dashboard', extensiones: [png, jpg, jpeg, webp], minimo: 4}
+      - {id: accesibilidad, descripcion: "Lineamientos de accesibilidad", tipo: informe, patron: 'accesib|wcag|aria', minimo: 1}
+
+  - id: vistas
+    nombre: Las cuatro vistas
+    fase: 5
+    max: 0.40
+    senales:
+      - {id: vista_paciente, descripcion: "Vista Paciente", tipo: contenido, patron: 'vista.?paciente|portal.?paciente|paciente\.html|view.?patient|/paciente|patient.?view', en: todo}
+      - {id: vista_admisionista, descripcion: "Vista Admisionista", tipo: contenido, patron: 'vista.?admision|admision\w*\.html|admisionista', en: todo}
+      - {id: vista_medico, descripcion: "Vista Médico", tipo: contenido, patron: 'vista.?m[eé]dic|medico\.html|view.?doctor', en: todo}
+      - {id: vista_reporte, descripcion: "Reporte de HC", tipo: contenido, patron: 'reporte.?(de.?)?hc|report.?hc|/report|reporte', en: todo}
+      - {id: permisos_por_rol, descripcion: "Permisos por rol en el servidor", tipo: contenido, patron: 'Depends\(.*rol|require_?role|_roles\(|has_?role|@roles|role.*required|roles?_required|authorize', en: codigo}
+      - {id: tablero_cobertura, descripcion: "Tablero de cobertura por sede", tipo: contenido, patron: 'cobertura|coverage', en: todo}
+
+  - id: demo
+    nombre: Demo desde cero
+    fase: 5
+    max: 0.30
+    senales:
+      - {id: compose_existe, descripcion: "docker-compose.yml en la entrega", tipo: compose, campo: servicios, minimo: 1}
+      - {id: readme_compose_up, descripcion: "README con docker compose up", tipo: contenido, patron: 'docker[- ]compose up', en: docs}
+      - {id: readme_usuarios, descripcion: "README con usuarios de prueba", tipo: contenido, patron: 'usuarios? de prueba|usuario.*contrase|demo-|password', en: docs}
+      - {id: etiqueta_v10, descripcion: "Etiqueta v1.0 en el repositorio", tipo: git, campo: etiqueta_v10}
+      - {id: datos_sinteticos, descripcion: "Datos sintéticos declarados", tipo: contenido, patron: 'sint[eé]tic|synthetic|ficticio', en: docs}
+      - {id: ejec_levanta, descripcion: "docker compose up levanta sin errores (ejecución)", tipo: ejecucion, prueba: levanta}
+
+  - id: informe_final
+    nombre: Informe final y referencias
+    fase: 5
+    max: 0.15
+    senales:
+      - {id: plantilla_completa, descripcion: "Secciones de la plantilla v7 (14 de 16)", tipo: informe, campo: secciones, minimo: 14}
+      - {id: referencias_8, descripcion: "8 o más fuentes", tipo: informe, campo: referencias, minimo: 8}
+      - {id: bitacora, descripcion: "Anexo de bitácora y declaración de IA", tipo: informe, patron: 'bit[aá]cora', minimo: 1}
+      - {id: resultados_medidos, descripcion: "Resultados medidos", tipo: informe, patron: 'latencia|mensajes por minuto|% de fallid|cobertura', minimo: 1}
+
+  - id: sustentacion
+    nombre: Sustentación individual
+    fase: 5
+    max: 0.15
+    senales:
+      - {id: sustentacion, descripcion: "Cada integrante explica y modifica en vivo una parte del sistema", tipo: manual}
+
+bonus:
+  - {id: bonus_fabric, descripcion: "Anclaje de auditoría en Hyperledger Fabric", tipo: contenido, patron: 'hyperledger|chaincode', en: codigo}
+  - {id: bonus_k8s, descripcion: "Manifiestos de Kubernetes con probes", tipo: contenido, patron: 'livenessProbe|readinessProbe', en: todo}
+  - {id: bonus_carga, descripcion: "Pruebas de carga medidas", tipo: archivo, patron: 'locust|k6|jmeter|carga|load.?test|stress|benchmark'}
+  - {id: bonus_observabilidad, descripcion: "Tablero Grafana", tipo: contenido, patron: 'grafana', en: codigo}

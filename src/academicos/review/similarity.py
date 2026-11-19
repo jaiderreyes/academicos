@@ -50,12 +50,13 @@ def firma_archivo(texto):
     return hashlib.sha256(" ".join(_tokens(texto)).encode("utf-8")).hexdigest()
 
 
-def cargar_base(carpeta):
+def cargar_base(carpeta, extensiones=(".java",)):
     """Base entregada por la persona docente: firmas por archivo y huella para restar."""
     carpeta = Path(carpeta)
-    archivos = [SimpleNamespace(path=p.relative_to(carpeta).as_posix()) for p in sorted(carpeta.rglob("*.java"))]
+    archivos = [SimpleNamespace(path=p.relative_to(carpeta).as_posix())
+                for p in sorted(carpeta.rglob("*")) if p.is_file() and p.suffix.lower() in extensiones]
     if not archivos:
-        raise ValueError(f"no hay archivos .java en la base {carpeta}")
+        raise ValueError(f"no hay archivos {'/'.join(extensiones)} en la base {carpeta}")
     firmas = {firma_archivo((carpeta / a.path).read_text(encoding="utf-8", errors="replace")) for a in archivos}
     return {"nombre": carpeta.name, "firmas": firmas, "archivos": len(archivos),
             "huella": huella_de(carpeta, archivos, minimo=0)}
