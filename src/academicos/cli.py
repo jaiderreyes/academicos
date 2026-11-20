@@ -41,6 +41,9 @@ def main(argv=None):
     prepare.add_argument('material', type=Path, help='Archivo o carpeta con PDF, DOCX o ZIP')
     prepare.add_argument('--workspace', type=Path, default=Path('prueba'))
     prepare.add_argument('--clean', action='store_true', help='Limpiar entrada y resultados anteriores')
+    gui = sub.add_parser('gui', help='Abrir la interfaz gráfica local')
+    gui.add_argument('--puerto', type=int, default=8765)
+    gui.add_argument('--no-abrir', action='store_true')
     clean = sub.add_parser('clean', help='Limpiar un espacio de prueba administrado')
     clean.add_argument('--workspace', type=Path, default=Path('prueba'))
     clean.add_argument('--include-input', action='store_true', help='Eliminar también las copias de entrada')
@@ -49,6 +52,9 @@ def main(argv=None):
     try:
         if args.command == 'review':
             return run_review(args)
+        if args.command == 'gui':
+            from .gui import run_gui
+            return run_gui(args.puerto, not args.no_abrir)
         if args.command == 'prepare':
             print(json.dumps(prepare_material(args.material, args.workspace, args.clean), ensure_ascii=False, indent=2))
             return 0

@@ -14,5 +14,7 @@ output/
 
 # Datos de estudiantes: nunca al repositorio
 reportes/
+reportes-*/
+reportes-gui/
 manuales/*
 !manuales/EJEMPLO.yaml
